@@ -1,469 +1,431 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<title>Echo · 全屏播放器原型</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Echo · 全屏播放器 Demo</title>
 <style>
-  :root{
-    --bg:#0B0D12;
-    --surface:#141821;
-    --card:#1B2030;
-    --text:#F2F4F8;
-    --muted:#8A94A6;
-    --brand:#4C6FD1;
-    --brand-strong:#1B3FA0;
-    --border:rgba(255,255,255,.08);
-  }
-  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;font-family:"PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif}
   body{
-    min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    background:radial-gradient(circle at 32% 18%,#1A2138,#08090C 72%);
-    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
-    padding:24px;gap:14px;
+    display:grid;place-items:center;gap:24px;
+    min-height:100vh;
+    padding:32px;
+    background:#0a0b10;
+    color:#e8eaf0;
   }
+
+  /* ------- 五套完整主题 ------- */
+  /* 0 · 稻香 —— 暖金麦浪 */
+  .t0{--bg0:#1a1409;--bg1:#2a1f0a;--surface:rgba(255,214,102,.06);--primary:#e2a735;--primary-glow:rgba(226,167,53,.35);--text:#fff8e7;--text2:rgba(255,248,231,.55);--track:rgba(226,167,53,.22);--cover1:#f6c563;--cover2:#c88a2a;--cover3:#7a5214}
+  /* 1 · 浮夸 —— 电光紫粉 */
+  .t1{--bg0:#16081a;--bg1:#280d2e;--surface:rgba(230,110,220,.07);--primary:#e564d8;--primary-glow:rgba(229,100,216,.38);--text:#ffeaf9;--text2:rgba(255,234,249,.55);--track:rgba(229,100,216,.22);--cover1:#f07de8;--cover2:#b53bb0;--cover3:#5a1760}
+  /* 2 · 海阔天空 —— 深海蓝青 */
+  .t2{--bg0:#07131a;--bg1:#0d2330;--surface:rgba(80,200,220,.07);--primary:#4fc4d8;--primary-glow:rgba(79,196,216,.38);--text:#e6f7fb;--text2:rgba(230,247,251,.55);--track:rgba(79,196,216,.22);--cover1:#5fd4e8;--cover2:#2d8ea0;--cover3:#124654}
+  /* 3 · 平凡之路 —— 林间新绿 */
+  .t3{--bg0:#0d160d;--bg1:#142516;--surface:rgba(120,210,130,.07);--primary:#78d282;--primary-glow:rgba(120,210,130,.38);--text:#eafbee;--text2:rgba(234,251,238,.55);--track:rgba(120,210,130,.22);--cover1:#8ce095;--cover2:#4a9a55;--cover3:#1e4a24}
+  /* 4 · 夜曲 —— 深夜紫靛 */
+  .t4{--bg0:#0b0a1a;--bg1:#14112a;--surface:rgba(155,130,230,.07);--primary:#9b82e6;--primary-glow:rgba(155,130,230,.38);--text:#efeaff;--text2:rgba(239,234,255,.55);--track:rgba(155,130,230,.22);--cover1:#b6a3f2;--cover2:#6e55c2;--cover3:#2e2064}
+
+  /* ------- 手机外框 ------- */
   .phone{
-    width:390px;height:844px;border-radius:46px;position:relative;overflow:hidden;
-    background:var(--bg);
-    box-shadow:0 30px 80px rgba(0,0,0,.65),0 0 0 10px #14161C,0 0 0 11px #2E3340;
+    position:relative;
+    width:390px;height:844px;border-radius:48px;
+    overflow:hidden;
+    box-shadow:
+      0 30px 80px rgba(0,0,0,.6),
+      0 0 0 10px #12131a,
+      0 0 0 11px #1f2029;
+    background:linear-gradient(180deg,var(--bg0),var(--bg1) 100%);
+    transition:background 700ms ease;
   }
+  /* 刘海 */
   .notch{
     position:absolute;top:12px;left:50%;transform:translateX(-50%);
-    width:112px;height:26px;border-radius:14px;background:#05060A;z-index:30;
+    width:110px;height:28px;border-radius:20px;background:#000;z-index:3;
   }
-  .status-bar{
-    height:44px;display:flex;align-items:center;justify-content:space-between;
-    padding:0 26px;font-size:12px;color:var(--text);font-weight:600;position:relative;z-index:20;
-  }
-  .status-bar .right{display:flex;gap:5px;align-items:center;font-size:10px;letter-spacing:1px}
 
-  /* ---------- 首页层 ---------- */
-  .home-view{
-    position:absolute;inset:0;padding:8px 22px 0;display:flex;flex-direction:column;
+  /* ------- 播放器容器 ------- */
+  .player{
+    height:100%;padding:60px 28px 40px;
+    display:flex;flex-direction:column;
+    position:relative;overflow:hidden;
   }
-  .home-head{display:flex;align-items:flex-end;justify-content:space-between;padding:14px 0 18px}
-  .home-title{font-size:26px;font-weight:800;letter-spacing:-.5px;color:var(--text)}
-  .home-title span{color:var(--brand)}
-  .home-sub{font-size:11px;color:var(--muted);padding-bottom:5px}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:4px}
-  .pl-card{display:flex;flex-direction:column;gap:8px}
-  .pl-cover{
-    aspect-ratio:1/1;border-radius:16px;position:relative;overflow:hidden;
-    display:flex;align-items:center;justify-content:center;font-size:30px;color:rgba(255,255,255,.9);
-    box-shadow:0 8px 20px rgba(0,0,0,.35);
-  }
-  .pl-cover::after{
-    content:"";position:absolute;inset:0;
-    background:linear-gradient(150deg,rgba(255,255,255,.16),transparent 55%);
-  }
-  .pl-name{font-size:13px;font-weight:600;color:var(--text)}
-  .pl-count{font-size:11px;color:var(--muted);margin-top:2px}
 
-  /* ---------- 迷你播放条 ---------- */
-  .mini-bar{
-    position:absolute;left:14px;right:14px;bottom:20px;height:62px;
-    background:#1A1F2B;border:1px solid var(--border);border-radius:16px;
-    display:flex;align-items:center;gap:11px;padding:0 12px;cursor:pointer;
-    box-shadow:0 12px 28px rgba(0,0,0,.45);z-index:10;
-  }
-  .mini-cover{width:42px;height:42px;border-radius:10px;flex:none;display:flex;align-items:center;justify-content:center;font-size:17px;color:rgba(255,255,255,.95)}
-  .mini-info{flex:1;min-width:0}
-  .mini-title{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .mini-artist{font-size:11px;color:var(--muted);margin-top:2px}
-  .mini-btn{
-    width:34px;height:34px;border-radius:50%;background:var(--brand-strong);border:none;flex:none;
-    display:flex;align-items:center;justify-content:center;cursor:pointer;
-  }
-  .mini-chev{color:var(--muted);display:flex;align-items:center}
-
-  /* ---------- 全屏播放器层 ---------- */
-  .player-view{
-    position:absolute;inset:0;display:flex;flex-direction:column;
-    background:linear-gradient(180deg,#131A2B 0%,#0B0D12 46%,#0B0D12 100%);
-    transition:transform .44s cubic-bezier(.22,.85,.24,1);
-    z-index:20;
-  }
-  .player-view.collapsed{transform:translateY(100%)}
-  .player-top{
-    height:58px;flex:none;display:flex;align-items:center;justify-content:space-between;
-    padding:0 18px;padding-top:6px;
+  /* 顶部栏 */
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:40px;
   }
   .icon-btn{
-    width:38px;height:38px;border-radius:50%;background:transparent;border:none;
-    display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);
-    transition:background .16s;
+    width:40px;height:40px;border:none;background:transparent;color:var(--text);
+    border-radius:50%;cursor:pointer;display:grid;place-items:center;
+    font-size:18px;opacity:.8;transition:opacity .2s;
   }
-  .icon-btn:hover{background:rgba(255,255,255,.07)}
-  .player-top .caption{text-align:center;flex:1}
-  .caption-main{font-size:12px;font-weight:600;color:var(--text);letter-spacing:.4px}
-  .caption-sub{font-size:9px;color:var(--muted);margin-top:3px;letter-spacing:1.6px}
+  .icon-btn:hover{opacity:1}
+  .track-title{font-size:13px;color:var(--text2);font-weight:500;letter-spacing:.5px}
 
-  .art-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 30px 0}
-  .art{
-    width:100%;max-width:262px;aspect-ratio:1/1;border-radius:24px;position:relative;overflow:hidden;
-    display:flex;align-items:center;justify-content:center;
-    box-shadow:0 26px 50px rgba(0,0,0,.55);transition:background .35s;
+  /* ------- 封面（视觉中心） ------- */
+  .cover-wrap{
+    display:grid;place-items:center;
+    margin-bottom:40px;
   }
-  .art::before{
-    content:"";position:absolute;inset:0;
-    background:linear-gradient(145deg,rgba(255,255,255,.18),transparent 52%);
+  .cover{
+    width:234px;height:234px;border-radius:50%;
+    background:conic-gradient(from 210deg,var(--cover3),var(--cover2),var(--cover1),var(--cover2),var(--cover3));
+    box-shadow:
+      0 0 0 2px rgba(255,255,255,.08),
+      0 20px 60px var(--primary-glow),
+      0 0 120px var(--primary-glow);
+    position:relative;
+    animation:spin 8s linear infinite;
+    animation-play-state:paused;
   }
-  .art::after{
-    content:"";position:absolute;width:64%;height:64%;border-radius:50%;
-    border:1px solid rgba(255,255,255,.16);
+  .cover.playing{animation-play-state:running}
+  .cover::after{
+    content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:18px;height:18px;border-radius:50%;
+    background:var(--bg0);
+    box-shadow:0 0 0 3px var(--bg1),0 0 0 4px rgba(255,255,255,.12);
   }
-  .art-note{
-    position:relative;font-size:62px;color:rgba(255,255,255,.92);
-    text-shadow:0 6px 24px rgba(0,0,0,.4);z-index:2;
-  }
-  .song-meta{width:100%;max-width:300px;margin-top:26px}
-  .song-title{font-size:21px;font-weight:700;color:var(--text);letter-spacing:-.2px}
-  .song-artist{font-size:13px;color:var(--muted);margin-top:6px}
+  @keyframes spin{to{transform:rotate(360deg)}}
 
-  /* 进度条 */
-  .progress-block{width:100%;max-width:310px;margin-top:22px}
+  /* ------- 歌曲信息 ------- */
+  .info{text-align:center;margin-bottom:36px}
+  .title{
+    font-size:22px;font-weight:700;color:var(--text);
+    letter-spacing:.3px;line-height:1.3;margin-bottom:6px;
+    text-shadow:0 2px 20px var(--primary-glow);
+  }
+  .artist{font-size:14px;color:var(--text2)}
+
+  /* ------- 进度 ------- */
+  .progress{margin-bottom:36px}
   .bar{
-    height:26px;display:flex;align-items:center;cursor:pointer;touch-action:none;
-  }
-  .bar-track{
-    flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.16);position:relative;
+    height:4px;border-radius:4px;background:var(--track);
+    overflow:hidden;cursor:pointer;position:relative;
   }
   .bar-fill{
-    position:absolute;left:0;top:0;height:100%;border-radius:2px;
-    background:linear-gradient(90deg,var(--brand-strong),var(--brand));
+    height:100%;border-radius:4px;background:var(--primary);
+    width:0%;transition:width .2s linear;
   }
-  .bar-knob{
-    position:absolute;top:50%;width:12px;height:12px;border-radius:50%;background:#fff;
-    transform:translate(-50%,-50%);box-shadow:0 2px 6px rgba(0,0,0,.5);
-    transition:width .12s,height .12s;
+  .time-row{
+    display:flex;justify-content:space-between;margin-top:10px;
+    font-size:11px;color:var(--text2);font-variant-numeric:tabular-nums;
   }
-  .bar.dragging .bar-knob{width:16px;height:16px}
-  .times{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums}
 
-  /* 控制区 */
+  /* ------- 控制区 ------- */
   .controls{
-    width:100%;max-width:320px;display:flex;align-items:center;justify-content:space-between;
-    margin-top:16px;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 6px;margin-bottom:28px;
   }
-  .ctrl{
-    width:44px;height:44px;border-radius:50%;background:transparent;border:none;
-    display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);
-    transition:transform .12s,background .16s;position:relative;
+  .ctrl-btn{
+    width:44px;height:44px;border:none;background:transparent;color:var(--text);
+    border-radius:50%;cursor:pointer;display:grid;place-items:center;
+    transition:all .2s;opacity:.75;
   }
-  .ctrl:hover{background:rgba(255,255,255,.07)}
-  .ctrl:active{transform:scale(.9)}
-  .main-btn{
-    width:66px;height:66px;border-radius:50%;border:none;cursor:pointer;
-    background:linear-gradient(145deg,#5B7FE0,var(--brand-strong));
-    display:flex;align-items:center;justify-content:center;
-    box-shadow:0 10px 26px rgba(27,63,160,.55);
-    transition:transform .12s;
+  .ctrl-btn:hover{opacity:1;transform:scale(1.08)}
+  .ctrl-btn.play{
+    width:74px;height:74px;
+    background:var(--primary);color:var(--bg0);
+    box-shadow:0 8px 28px var(--primary-glow);opacity:1;
   }
-  .main-btn:active{transform:scale(.94)}
-  .mode-tag{
-    position:absolute;bottom:-2px;font-size:8px;color:var(--brand);font-weight:700;letter-spacing:.5px;
-  }
+  .ctrl-btn.play:hover{transform:scale(1.06)}
+  .ctrl-btn.play:active{transform:scale(.96)}
 
-  /* 歌词预览 */
+  /* ------- 歌词 ------- */
   .lyrics{
-    flex:none;height:118px;margin-top:10px;padding:0 34px;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;
-    text-align:center;overflow:hidden;
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:8px;text-align:center;overflow:hidden;
   }
-  .lyr{font-size:13px;color:rgba(255,255,255,.34);transition:all .3s;line-height:1.35;
-       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-  .lyr.active{font-size:16px;font-weight:600;color:#fff}
-  .lyr.adjacent{color:rgba(255,255,255,.52)}
+  .lyric{
+    font-size:13px;color:var(--text2);line-height:1.6;
+    transition:all .4s;max-width:300px;
+  }
+  .lyric.active{
+    font-size:15px;font-weight:600;color:var(--text);
+    text-shadow:0 0 20px var(--primary-glow);
+  }
+  .lyric.hidden{opacity:0;transform:translateY(6px)}
 
-  .hint{font-size:12px;color:#5D6577;letter-spacing:.3px}
-  .hint b{color:#8A94A6;font-weight:600}
+  /* SVG 图标 */
+  svg{display:block}
 </style>
 </head>
 <body>
 
-<div class="phone">
+<div class="phone t0" id="phone">
   <div class="notch"></div>
-  <div class="status-bar">
-    <span>9:41</span>
-    <span class="right">●●● ▮</span>
-  </div>
 
-  <!-- ===== 首页层（播放器收起时露出） ===== -->
-  <div class="home-view">
-    <div class="home-head">
-      <div class="home-title">Ec<span>h</span>o</div>
-      <div class="home-sub">听见每一次循环</div>
-    </div>
-    <div class="grid" id="homeGrid"></div>
-    <div class="mini-bar" id="miniBar">
-      <div class="mini-cover" id="miniCover">♪</div>
-      <div class="mini-info">
-        <div class="mini-title" id="miniTitle">稻香</div>
-        <div class="mini-artist" id="miniArtist">周杰伦</div>
-      </div>
-      <button class="mini-btn" id="miniPlay">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><path d="M7 4l13 8-13 8z"/></svg>
+  <div class="player">
+    <!-- 顶部 -->
+    <div class="topbar">
+      <button class="icon-btn" title="收起">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 15l6-6 6 6"/></svg>
       </button>
-      <div class="mini-chev">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== 全屏播放器层 ===== -->
-  <div class="player-view" id="playerView">
-    <!-- 顶部：收起 + 歌名 + 菜单 -->
-    <div class="player-top">
-      <button class="icon-btn" id="collapseBtn" aria-label="收起">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-      </button>
-      <div class="caption">
-        <div class="caption-main" id="topTitle">稻香</div>
-        <div class="caption-sub">正在播放</div>
-      </div>
-      <button class="icon-btn" aria-label="菜单">
+      <div class="track-title">正在播放</div>
+      <button class="icon-btn" title="更多">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
       </button>
     </div>
 
-    <!-- 中部：大封面 -->
-    <div class="art-wrap">
-      <div class="art" id="art">
-        <div class="art-note" id="artNote">♪</div>
+    <!-- 封面 -->
+    <div class="cover-wrap">
+      <div class="cover playing" id="cover"></div>
+    </div>
+
+    <!-- 歌名/歌手 -->
+    <div class="info">
+      <div class="title" id="title">稻香</div>
+      <div class="artist" id="artist">周杰伦 · 魔杰座</div>
+    </div>
+
+    <!-- 进度 -->
+    <div class="progress">
+      <div class="bar" id="bar">
+        <div class="bar-fill" id="barFill"></div>
       </div>
-      <div class="song-meta">
-        <div class="song-title" id="songTitle">稻香</div>
-        <div class="song-artist" id="songArtist">周杰伦 · 魔杰座</div>
-      </div>
-
-      <!-- 进度条 -->
-      <div class="progress-block">
-        <div class="bar" id="bar">
-          <div class="bar-track">
-            <div class="bar-fill" id="barFill"></div>
-            <div class="bar-knob" id="barKnob"></div>
-          </div>
-        </div>
-        <div class="times">
-          <span id="curTime">00:00</span>
-          <span id="durTime">03:43</span>
-        </div>
-      </div>
-
-      <!-- 控制区 -->
-      <div class="controls">
-        <button class="ctrl" id="modeBtn" aria-label="播放模式">
-          <svg id="modeIcon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/>
-          </svg>
-          <span class="mode-tag" id="modeTag">顺序</span>
-        </button>
-
-        <button class="ctrl" id="prevBtn" aria-label="上一首">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6z"/><path d="M20 5v14l-11-7z"/></svg>
-        </button>
-
-        <button class="main-btn" id="playBtn" aria-label="播放/暂停">
-          <svg id="playIcon" width="26" height="26" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
-        </button>
-
-        <button class="ctrl" id="nextBtn" aria-label="下一首">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2z"/><path d="M4 5v14l11-7z"/></svg>
-        </button>
-
-        <button class="ctrl" id="queueBtn" aria-label="播放队列">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6h16M4 12h11M4 18h7"/><path d="M17 16l3 2-3 2z" fill="currentColor" stroke="none"/></svg>
-        </button>
-      </div>
-
-      <!-- 底部：歌词预览 -->
-      <div class="lyrics" id="lyrics">
-        <div class="lyr"></div>
-        <div class="lyr"></div>
-        <div class="lyr"></div>
+      <div class="time-row">
+        <span id="cur">0:00</span><span id="dur">3:43</span>
       </div>
     </div>
+
+    <!-- 控制 -->
+    <div class="controls">
+      <button class="ctrl-btn" id="mode" title="播放模式" style="font-size:18px;opacity:.9">
+        <svg id="modeIcon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+        </svg>
+      </button>
+      <button class="ctrl-btn" id="prev" title="上一首">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zM20 6v12L10 12z"/></svg>
+      </button>
+      <button class="ctrl-btn play" id="play" title="播放/暂停">
+        <svg id="playIcon" width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <button class="ctrl-btn" id="next" title="下一首">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM4 6v12l10-6z"/></svg>
+      </button>
+      <button class="ctrl-btn" id="queue" title="队列">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>
+      </button>
+    </div>
+
+    <!-- 歌词 -->
+    <div class="lyrics" id="lyrics"></div>
   </div>
 </div>
 
-<div class="hint">点击顶部 <b>˅</b> 收起播放器 → 回到首页迷你条；点迷你条再展开</div>
-
 <script>
-  // ---------- 数据 ----------
-  const songs = [
-    { title:"稻香",   artist:"周杰伦",   album:"魔杰座",   duration:223000, grad:["#3C5EA8","#16264E"], note:"♫" },
-    { title:"晴天",   artist:"周杰伦",   album:"叶惠美",   duration:269000, grad:["#2F7A72","#123A38"], note:"♪" },
-    { title:"浮夸",   artist:"陈奕迅",   album:"U87",      duration:279000, grad:["#8A4A3C","#3A1A16"], note:"♬" },
-    { title:"海阔天空",artist:"Beyond",  album:"乐与怒",   duration:326000, grad:["#3A5A92","#141F3C"], note:"♪" },
-    { title:"平凡之路",artist:"朴树",    album:"猎户星座", duration:302000, grad:["#6A5A8C","#251D38"], note:"♩" }
-  ];
+/* ---------- 歌曲数据 ---------- */
+const songs = [
+  {
+    theme: 't0', dur: 223,
+    title: '稻香', artist: '周杰伦 · 魔杰座',
+    lyrics: [
+      [0, '对这个世界如果你有太多的抱怨'],
+      [4000, '跌倒了就不敢继续往前走'],
+      [8500, '为什么人要这么的脆弱 堕落'],
+      [13000, '请你打开电视看看'],
+      [17000, '多少人为生命在努力勇敢的走下去'],
+      [22000, '我们是不是该知足'],
+      [25500, '珍惜一切就算没有拥有'],
+      [30000, '还记得你说家是唯一的城堡'],
+      [34500, '随着稻香河流继续奔跑'],
+    ]
+  },
+  {
+    theme: 't1', dur: 265,
+    title: '浮夸', artist: '陈奕迅 · U8',
+    lyrics: [
+      [0, '有人问我我就会讲'],
+      [3500, '但是无人来'],
+      [6500, '我期待到无奈'],
+      [9500, '有话要讲得不到装载'],
+      [13000, '我的心情犹像樽盖'],
+      [16500, '等被揭开'],
+      [19500, '嘴巴却在养青苔'],
+      [23000, '人潮内愈文静'],
+      [26500, '愈变得不受理睬'],
+    ]
+  },
+  {
+    theme: 't2', dur: 326,
+    title: '海阔天空', artist: 'Beyond · 乐与怒',
+    lyrics: [
+      [0, '今天我 寒夜里看雪飘过'],
+      [4500, '怀着冷却了的心窝漂远方'],
+      [9000, '风雨里追赶 雾里分不清影踪'],
+      [14000, '天空海阔你与我'],
+      [17500, '可会变（谁没在变）'],
+      [22000, '多少次 迎着冷眼与嘲笑'],
+      [26500, '从没有放弃过心中的理想'],
+      [31000, '一刹那恍惚 若有所失的感觉'],
+      [36000, '不知不觉已变淡'],
+    ]
+  },
+  {
+    theme: 't3', dur: 297,
+    title: '平凡之路', artist: '朴树 · 猎户星座',
+    lyrics: [
+      [0, '徘徊着的 在路上的'],
+      [3500, '你要走吗 via via'],
+      [7000, '易碎的 骄傲着'],
+      [10500, '那也曾是我的模样'],
+      [14000, '沸腾着的 不安着的'],
+      [17500, '你要去哪 via via'],
+      [21000, '谜一样的 沉默着的'],
+      [24500, '故事你真的在听吗'],
+      [28000, '我曾经跨过山和大海'],
+    ]
+  },
+  {
+    theme: 't4', dur: 238,
+    title: '夜曲', artist: '周杰伦 · 十一月的萧邦',
+    lyrics: [
+      [0, '一群嗜血的蚂蚁 被腐肉所吸引'],
+      [5000, '我面无表情 看孤独的风景'],
+      [10000, '失去你 爱恨开始分明'],
+      [14500, '失去你 还有什么事好关心'],
+      [19000, '当鸽子不再象征和平'],
+      [23500, '我终于被提醒 广场上喂食的是秃鹰'],
+      [29000, '我用漂亮的押韵'],
+      [32500, '形容被掠夺一空的爱情'],
+    ]
+  },
+];
 
-  // 每首歌的歌词（按行数均分整首时长，便于演示滚动效果）
-  const lyricLines = [
-    ["对这个世界如果你有太多的抱怨","跌倒了就不敢继续往前走","为什么人要这么的脆弱 堕落","请你打开电视看看","多少人为生命在努力勇敢的走下去"],
-    ["故事的小黄花","从出生那年就飘着","童年的荡秋千","随记忆一直晃到现在","吹着前奏望着天空"],
-    ["有人问我 我就会讲 但是无人来","我期待到无奈 有话要讲 得不到装载","我的心情犹像樽盖 等被揭开","嘴巴却在养青苔","人潮内 愈文静 愈变得 不受理睬"],
-    ["今天我 寒夜里看雪飘过","怀着冷却了的心窝漂远方","风雨里追赶 雾里分不清影踪","天空海阔你与我","可会变（谁没在变）"],
-    ["我曾经跨过山和大海","也穿过人山人海","我曾经拥有着的一切","转眼都飘散如烟","我曾经失落失望失掉所有方向"]
-  ];
+/* ---------- 模式 ---------- */
+const MODES = [
+  { name:'顺序', icon:'<path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>' },
+  { name:'单曲', icon:'<path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/><text x="12" y="15" text-anchor="middle" font-size="7" fill="currentColor" stroke="none">1</text>' },
+  { name:'随机', icon:'<path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/>' },
+];
 
-  const playlists = [
-    { name:"跑步歌单", count:4, emoji:"🏃", grad:["#2B4C8C","#12213D"] },
-    { name:"深夜电台", count:4, emoji:"🌙", grad:["#4A3A78","#1C1533"] },
-    { name:"运动必备", count:3, emoji:"⚡", grad:["#8A5A2C","#3A2412"] },
-    { name:"怀旧金曲", count:5, emoji:"📻", grad:["#2C6A62","#123330"] }
-  ];
+/* ---------- 状态 ---------- */
+let idx = 0;
+let playing = true;
+let mode = 0;
+let posMs = 0;
+let lastTick = 0;
 
-  // ---------- 状态 ----------
-  let index = 0;
-  let position = 0;
-  let isPlaying = false;
-  let dragging = false;
-  let mode = 0;               // 0 顺序 / 1 单曲 / 2 随机
-  const modeNames = ["顺序","单曲","随机"];
+/* ---------- DOM ---------- */
+const $ = id => document.getElementById(id);
+const phone = $('phone');
+const cover = $('cover');
+const play = $('play');
+const playIcon = $('playIcon');
+const barFill = $('barFill');
+const bar = $('bar');
+const curEl = $('cur'), durEl = $('dur');
+const titleEl = $('title'), artistEl = $('artist');
+const lyricsEl = $('lyrics');
+const modeBtn = $('mode');
+const modeIcon = $('modeIcon');
 
-  // ---------- DOM ----------
-  const $ = id => document.getElementById(id);
-  const playerView = $('playerView'), art = $('art'), artNote = $('artNote');
-  const songTitle = $('songTitle'), songArtist = $('songArtist'), topTitle = $('topTitle');
-  const bar = $('bar'), barFill = $('barFill'), barKnob = $('barKnob');
-  const curTime = $('curTime'), durTime = $('durTime');
-  const playIcon = $('playIcon');
+function fmt(sec){ const m=Math.floor(sec/60), s=Math.floor(sec%60); return m+':'+(s<10?'0':'')+s; }
 
-  function fmt(ms){
-    const s = Math.floor(ms / 1000);
-    return String(Math.floor(s / 60)).padStart(2,'0') + ':' + String(s % 60).padStart(2,'0');
-  }
+/* ---------- 渲染 ---------- */
+function renderSong(){
+  const s = songs[idx];
+  // 主题（立即切换背景色，封面渐变跟随 CSS 变量过渡）
+  phone.className = 'phone ' + s.theme;
+  titleEl.textContent = s.title;
+  artistEl.textContent = s.artist;
+  durEl.textContent = fmt(s.dur);
+  posMs = 0;
+  renderProgress();
+  renderLyrics();
+  updateModeIcon();
+}
 
-  function renderSong(){
-    const s = songs[index];
-    art.style.background = `linear-gradient(145deg, ${s.grad[0]}, ${s.grad[1]})`;
-    artNote.textContent = s.note;
-    songTitle.textContent = s.title;
-    songArtist.textContent = s.artist + ' · ' + s.album;
-    topTitle.textContent = s.title;
-    durTime.textContent = fmt(s.duration);
-    $('miniTitle').textContent = s.title;
-    $('miniArtist').textContent = s.artist;
-    $('miniCover').style.background = `linear-gradient(145deg, ${s.grad[0]}, ${s.grad[1]})`;
-    renderProgress();
-    renderLyrics();
-  }
+function renderProgress(){
+  const s = songs[idx];
+  const pct = Math.min(100, posMs / (s.dur*1000) * 100);
+  barFill.style.width = pct + '%';
+  curEl.textContent = fmt(posMs/1000);
+}
 
-  function renderProgress(){
-    const s = songs[index];
-    const p = Math.min(1, position / s.duration);
-    barFill.style.width = (p * 100) + '%';
-    barKnob.style.left = (p * 100) + '%';
-    curTime.textContent = fmt(position);
-  }
-
-  function renderLyrics(){
-    const s = songs[index];
-    const lines = lyricLines[index];
-    const idx = Math.min(lines.length - 1, Math.floor(position / s.duration * lines.length));
-    const els = $('lyrics').children;
-    for (let i = 0; i < 3; i++){
-      const lineIdx = idx - 1 + i;
-      const el = els[i];
-      el.textContent = lines[lineIdx] || '';
-      el.className = 'lyr' + (lineIdx === idx ? ' active' : (Math.abs(lineIdx - idx) === 1 ? ' adjacent' : ''));
+function renderLyrics(){
+  const s = songs[idx];
+  const lines = s.lyrics;
+  // 找到当前行：最后一个 <= posMs
+  let activeIdx = -1;
+  for(let i=0;i<lines.length;i++) if(lines[i][0] <= posMs) activeIdx = i;
+  // 显示 activeIdx-1, activeIdx, activeIdx+1（共 3 行）
+  const html = [];
+  for(let i=-1;i<=1;i++){
+    const k = activeIdx + i;
+    if(k<0 || k>=lines.length){
+      html.push('<div class="lyric hidden">·</div>');
+    } else if(i===0){
+      html.push('<div class="lyric active">' + lines[k][1] + '</div>');
+    } else {
+      html.push('<div class="lyric">' + lines[k][1] + '</div>');
     }
   }
+  lyricsEl.innerHTML = html.join('');
+}
 
-  function renderPlayState(){
-    playIcon.innerHTML = isPlaying
-      ? '<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>'
-      : '<path d="M8 5v14l11-7z"/>';
-    $('miniPlay').innerHTML = isPlaying
-      ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>'
-      : '<svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>';
-  }
+function updateModeIcon(){
+  modeIcon.innerHTML = MODES[mode].icon;
+}
 
-  function renderMode(){
-    $('modeTag').textContent = modeNames[mode];
-    const icons = [
-      '<path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/>',
-      '<path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/><text x="9" y="15.6" font-size="8" fill="currentColor" stroke="none" font-weight="700">1</text>',
-      '<path d="M16 3h5v5"/><path d="M21 3l-6.5 6.5"/><path d="M8 21H3v-5"/><path d="M3 21l6.5-6.5"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M3 8V3h5"/><path d="M9 9L3 3"/>'
-    ];
-    $('modeIcon').innerHTML = icons[mode];
-  }
-
-  // ---------- 播放逻辑 ----------
-  setInterval(() => {
-    if (!isPlaying || dragging) return;
-    position += 250;
-    if (position >= songs[index].duration){
-      if (mode === 1){ position = 0; }          // 单曲循环
-      else { position = 0; goNext(); }          // 顺序 / 随机
-      return;
+/* ---------- 播放循环 ---------- */
+function tick(ts){
+  if(!lastTick) lastTick = ts;
+  const dt = ts - lastTick; lastTick = ts;
+  if(playing){
+    posMs += dt;
+    const s = songs[idx];
+    if(posMs >= s.dur*1000){
+      // 下一首逻辑
+      posMs = 0;
+      if(mode===1){ /* 单曲：保持 idx 不变 */ }
+      else if(mode===2){ idx = Math.floor(Math.random()*songs.length); renderSong(); }
+      else { idx = (idx+1) % songs.length; renderSong(); }
+    } else {
+      renderProgress();
+      renderLyrics();
     }
-    renderProgress();
-    renderLyrics();
-  }, 250);
-
-  function goNext(){
-    index = mode === 2
-      ? Math.floor(Math.random() * songs.length)
-      : (index + 1) % songs.length;
-    renderSong();
   }
+  requestAnimationFrame(tick);
+}
 
-  function goPrev(){
-    index = (index - 1 + songs.length) % songs.length;
-    renderSong();
-  }
+/* ---------- 事件 ---------- */
+play.addEventListener('click', ()=>{
+  playing = !playing;
+  cover.classList.toggle('playing', playing);
+  playIcon.innerHTML = playing
+    ? '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>'
+    : '<path d="M8 5v14l11-7z"/>';
+});
 
-  // ---------- 交互绑定 ----------
-  $('playBtn').addEventListener('click', () => { isPlaying = !isPlaying; renderPlayState(); });
-  $('miniPlay').addEventListener('click', e => { e.stopPropagation(); isPlaying = !isPlaying; renderPlayState(); });
-  $('nextBtn').addEventListener('click', () => { position = 0; goNext(); });
-  $('prevBtn').addEventListener('click', () => { position = 0; goPrev(); });
-  $('modeBtn').addEventListener('click', () => { mode = (mode + 1) % 3; renderMode(); });
-  $('queueBtn').addEventListener('click', () => {
-    $('queueBtn').animate(
-      [{ transform:'scale(1)' },{ transform:'scale(.88)' },{ transform:'scale(1)' }],
-      { duration:180, easing:'ease-out' }
-    );
-  });
-
-  // 收起 / 展开
-  $('collapseBtn').addEventListener('click', () => playerView.classList.add('collapsed'));
-  $('miniBar').addEventListener('click', () => playerView.classList.remove('collapsed'));
-
-  // 进度拖拽
-  function seekTo(e){
-    const rect = bar.getBoundingClientRect();
-    const p = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-    position = p * songs[index].duration;
-    renderProgress();
-    renderLyrics();
-  }
-  bar.addEventListener('pointerdown', e => {
-    dragging = true;
-    bar.classList.add('dragging');
-    bar.setPointerCapture(e.pointerId);
-    seekTo(e);
-  });
-  bar.addEventListener('pointermove', e => { if (dragging) seekTo(e); });
-  bar.addEventListener('pointerup', e => {
-    dragging = false;
-    bar.classList.remove('dragging');
-  });
-
-  // ---------- 首页歌单 ----------
-  $('homeGrid').innerHTML = playlists.map(p => `
-    <div class="pl-card">
-      <div class="pl-cover" style="background:linear-gradient(145deg,${p.grad[0]},${p.grad[1]})">${p.emoji}</div>
-      <div class="pl-name">${p.name}</div>
-      <div class="pl-count">${p.count} 首</div>
-    </div>
-  `).join('');
-
-  // ---------- 初始化 ----------
+$('prev').addEventListener('click', ()=>{
+  idx = (idx - 1 + songs.length) % songs.length;
   renderSong();
-  renderPlayState();
-  renderMode();
+});
+$('next').addEventListener('click', ()=>{
+  idx = (idx + 1) % songs.length;
+  renderSong();
+});
+
+modeBtn.addEventListener('click', ()=>{
+  mode = (mode + 1) % MODES.length;
+  updateModeIcon();
+});
+
+bar.addEventListener('click', e=>{
+  const rect = bar.getBoundingClientRect();
+  const pct = (e.clientX - rect.left) / rect.width;
+  posMs = Math.round(pct * songs[idx].dur * 1000);
+  renderProgress();
+  renderLyrics();
+});
+
+/* ---------- 启动 ---------- */
+renderSong();
+requestAnimationFrame(tick);
 </script>
 </body>
 </html>
