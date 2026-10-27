@@ -13,5 +13,6 @@ data class Song(
   val durationMs: Long,       // 毫秒，便于进度条计算
   val source: String,         // "local" / "http" / "youtube"
   val sourceUrl: String,      // 本地路径或 URL，ExoPlayer 播放的就是它
+  val lyrics: List<LyricLine> = emptyList(),  // 阶段五接入 LRC 解析前，先由 Mock 数据提供
   val lastModifiedAt: Long
 )

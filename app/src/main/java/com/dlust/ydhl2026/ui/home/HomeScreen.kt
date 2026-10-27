@@ -62,6 +62,7 @@ private val DarkTextPrimary = Color(0xFFE8EAED)
  */
 @Composable
 fun HomeScreen(
+  playerViewModel: PlayerViewModel,
   onOpenPlayer: () -> Unit = {},
   onPlaylistClick: (Playlist) -> Unit = {},
   modifier: Modifier = Modifier
@@ -69,7 +70,6 @@ fun HomeScreen(
   val context = LocalContext.current
   val repository = remember { context.musicRepository() }
   val homeViewModel: HomeViewModel = viewModel(factory = HomeViewModelFactory(repository))
-  val playerViewModel: PlayerViewModel = viewModel()
   val state by homeViewModel.uiState.collectAsStateWithLifecycle()
   val playerState by playerViewModel.uiState.collectAsStateWithLifecycle()
   val isDark = isSystemInDarkTheme()

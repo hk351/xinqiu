@@ -68,3 +68,83 @@ fun ChevronUpIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
     drawPath(path = path, color = color, style = Stroke(width = w * 0.10f, cap = StrokeCap.Round))
   }
 }
+
+/** 向下箭头：收起全屏播放器 */
+@Composable
+fun ChevronDownIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
+  Canvas(modifier = modifier) {
+    val w = size.width
+    val h = size.height
+    val path = Path().apply {
+      moveTo(w * 0.20f, h * 0.34f)
+      lineTo(w * 0.50f, h * 0.66f)
+      lineTo(w * 0.80f, h * 0.34f)
+    }
+    drawPath(path = path, color = color, style = Stroke(width = w * 0.10f, cap = StrokeCap.Round))
+  }
+}
+
+/** 上一首：左侧竖条 + 左向三角 */
+@Composable
+fun SkipPreviousIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
+  Canvas(modifier = modifier) {
+    val w = size.width
+    val h = size.height
+    drawRoundRect(
+      color = color,
+      topLeft = Offset(w * 0.14f, h * 0.18f),
+      size = Size(w * 0.10f, h * 0.64f),
+      cornerRadius = CornerRadius(w * 0.03f, w * 0.03f)
+    )
+    val path = Path().apply {
+      moveTo(w * 0.84f, h * 0.18f)
+      lineTo(w * 0.36f, h * 0.50f)
+      lineTo(w * 0.84f, h * 0.82f)
+      close()
+    }
+    drawPath(path = path, color = color)
+  }
+}
+
+/** 下一首：右向三角 + 右侧竖条 */
+@Composable
+fun SkipNextIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
+  Canvas(modifier = modifier) {
+    val w = size.width
+    val h = size.height
+    val path = Path().apply {
+      moveTo(w * 0.16f, h * 0.18f)
+      lineTo(w * 0.64f, h * 0.50f)
+      lineTo(w * 0.16f, h * 0.82f)
+      close()
+    }
+    drawPath(path = path, color = color)
+    drawRoundRect(
+      color = color,
+      topLeft = Offset(w * 0.76f, h * 0.18f),
+      size = Size(w * 0.10f, h * 0.64f),
+      cornerRadius = CornerRadius(w * 0.03f, w * 0.03f)
+    )
+  }
+}
+
+/** 播放队列：三行列表 */
+@Composable
+fun QueueListIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
+  Canvas(modifier = modifier) {
+    val w = size.width
+    val h = size.height
+    listOf(0.28f, 0.50f, 0.72f).forEach { y ->
+      drawLine(
+        color = color,
+        start = Offset(w * 0.30f, h * y),
+        end = Offset(w * 0.88f, h * y),
+        strokeWidth = w * 0.09f,
+        cap = StrokeCap.Round
+      )
+    }
+    listOf(0.28f, 0.50f, 0.72f).forEach { y ->
+      drawCircle(color = color, radius = w * 0.055f, center = Offset(w * 0.13f, h * y))
+    }
+  }
+}
