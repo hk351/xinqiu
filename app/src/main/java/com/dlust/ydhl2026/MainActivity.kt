@@ -1,18 +1,19 @@
 package com.dlust.ydhl2026
 
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.dlust.ydhl2026.ui.home.HomeScreen
 import com.dlust.ydhl2026.ui.player.FullPlayerScreen
 import com.dlust.ydhl2026.ui.player.PlayerViewModel
+import com.dlust.ydhl2026.ui.playlist.PlaylistScreen
 import com.dlust.ydhl2026.ui.screens.LoginScreen
 import com.dlust.ydhl2026.ui.screens.SplashScreen
 import com.dlust.ydhl2026.ui.theme.Ydhl2026Theme
@@ -46,15 +47,24 @@ class MainActivity : ComponentActivity() {
             )
           }
           composable(route = "home") {
-            val context = LocalContext.current
             HomeScreen(
               playerViewModel = playerViewModel,
               onOpenPlayer = { navController.navigate(route = "player") },
               onPlaylistClick = { playlist ->
-                Toast
-                  .makeText(context, "${playlist.name} 详情页下一轮实现", Toast.LENGTH_SHORT)
-                  .show()
+                navController.navigate(route = "playlist/${playlist.id}")
               }
+            )
+          }
+          composable(
+            route = "playlist/{playlistId}",
+            arguments = listOf(navArgument("playlistId") { type = NavType.LongType })
+          ) { entry ->
+            val playlistId = entry.arguments?.getLong("playlistId") ?: 0L
+            PlaylistScreen(
+              playlistId = playlistId,
+              playerViewModel = playerViewModel,
+              onBack = { navController.popBackStack() },
+              onOpenPlayer = { navController.navigate(route = "player") }
             )
           }
           composable(route = "player") {

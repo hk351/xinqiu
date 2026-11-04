@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dlust.ydhl2026.data.model.Song
 import com.dlust.ydhl2026.ui.components.CoverArt
+import com.dlust.ydhl2026.ui.formatDuration
 import com.dlust.ydhl2026.ui.theme.EchoBlue
 import com.dlust.ydhl2026.ui.theme.EchoBorder
 import com.dlust.ydhl2026.ui.theme.EchoBorderDark
@@ -197,6 +198,3 @@ private fun HintText(text: String, isDark: Boolean) {
     )
   }
 }
-
-/** 毫秒转 m:ss，如 223000 → 3:43 */
-private fun formatDuration(ms: Long): String = "%d:%02d".format(ms / 60000, ms / 1000 % 60)

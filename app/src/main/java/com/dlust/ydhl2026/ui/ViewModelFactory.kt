@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.dlust.ydhl2026.EchoApp
 import com.dlust.ydhl2026.data.repository.MusicRepository
 import com.dlust.ydhl2026.ui.home.HomeViewModel
+import com.dlust.ydhl2026.ui.playlist.PlaylistViewModel
 
 /**
  * 手动 DI 的落地方式：从 Application 里取 Repository，再用工厂把依赖传给 ViewModel。
@@ -21,4 +22,14 @@ class HomeViewModelFactory(
   @Suppress("UNCHECKED_CAST")
   override fun <T : ViewModel> create(modelClass: Class<T>): T =
     HomeViewModel(repository) as T
+}
+
+class PlaylistViewModelFactory(
+  private val repository: MusicRepository,
+  private val playlistId: Long
+) : ViewModelProvider.Factory {
+
+  @Suppress("UNCHECKED_CAST")
+  override fun <T : ViewModel> create(modelClass: Class<T>): T =
+    PlaylistViewModel(playlistId, repository) as T
 }

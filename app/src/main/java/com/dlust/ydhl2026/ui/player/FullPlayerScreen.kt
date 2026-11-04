@@ -49,6 +49,7 @@ import com.dlust.ydhl2026.ui.components.PlayIcon
 import com.dlust.ydhl2026.ui.components.QueueListIcon
 import com.dlust.ydhl2026.ui.components.SkipNextIcon
 import com.dlust.ydhl2026.ui.components.SkipPreviousIcon
+import com.dlust.ydhl2026.ui.formatDuration
 import com.dlust.ydhl2026.ui.theme.EchoBackgroundDark
 
 /**
@@ -210,12 +211,12 @@ fun FullPlayerScreen(
         horizontalArrangement = Arrangement.SpaceBetween
       ) {
         Text(
-          text = formatTime(state.positionMs),
+          text = formatDuration(state.positionMs),
           color = palette.textSecondary,
           fontSize = 11.sp
         )
         Text(
-          text = formatTime(state.durationMs),
+          text = formatDuration(state.durationMs),
           color = palette.textSecondary,
           fontSize = 11.sp
         )
@@ -398,8 +399,3 @@ private fun LyricsSection(
   }
 }
 
-/** 毫秒转 m:ss */
-private fun formatTime(ms: Long): String {
-  val totalSeconds = (ms / 1000).coerceAtLeast(0)
-  return "%d:%02d".format(totalSeconds / 60, totalSeconds % 60)
-}

@@ -128,6 +128,74 @@ fun SkipNextIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
   }
 }
 
+/** 返回：左向箭头 */
+@Composable
+fun ArrowBackIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
+  Canvas(modifier = modifier) {
+    val w = size.width
+    val h = size.height
+    val path = Path().apply {
+      moveTo(w * 0.74f, h * 0.16f)
+      lineTo(w * 0.30f, h * 0.50f)
+      lineTo(w * 0.74f, h * 0.84f)
+    }
+    drawPath(path = path, color = color, style = Stroke(width = w * 0.09f, cap = StrokeCap.Round))
+  }
+}
+
+/** 拖拽手柄：三条短横线 */
+@Composable
+fun DragHandleIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
+  Canvas(modifier = modifier) {
+    val w = size.width
+    val h = size.height
+    listOf(0.26f, 0.50f, 0.74f).forEach { y ->
+      drawLine(
+        color = color,
+        start = Offset(w * 0.18f, h * y),
+        end = Offset(w * 0.82f, h * y),
+        strokeWidth = w * 0.10f,
+        cap = StrokeCap.Round
+      )
+    }
+  }
+}
+
+/** 删除：垃圾桶轮廓 */
+@Composable
+fun TrashIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
+  Canvas(modifier = modifier) {
+    val w = size.width
+    val h = size.height
+    val strokeWidth = w * 0.075f
+    drawLine(
+      color = color,
+      start = Offset(w * 0.20f, h * 0.28f),
+      end = Offset(w * 0.80f, h * 0.28f),
+      strokeWidth = strokeWidth,
+      cap = StrokeCap.Round
+    )
+    drawLine(
+      color = color,
+      start = Offset(w * 0.40f, h * 0.18f),
+      end = Offset(w * 0.60f, h * 0.18f),
+      strokeWidth = strokeWidth,
+      cap = StrokeCap.Round
+    )
+    val body = Path().apply {
+      moveTo(w * 0.30f, h * 0.34f)
+      lineTo(w * 0.35f, h * 0.86f)
+      lineTo(w * 0.65f, h * 0.86f)
+      lineTo(w * 0.70f, h * 0.34f)
+    }
+    drawPath(
+      path = body,
+      color = color,
+      style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+    )
+  }
+}
+
 /** 播放队列：三行列表 */
 @Composable
 fun QueueListIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
