@@ -87,6 +87,32 @@ class PlayerViewModel : ViewModel() {
     _uiState.update { it.copy(repeatMode = (it.repeatMode + 1) % 3) }
   }
 
+  /** 在播放队列面板里点某一首：直接切过去并从头播放 */
+  fun onPlayFromQueue(index: Int) {
+    val state = _uiState.value
+    val song = state.queue.getOrNull(index) ?: return
+    _uiState.update {
+      it.copy(
+        currentSong = song,
+        isPlaying = true,
+        positionMs = 0L,
+        durationMs = song.durationMs
+      )
+    }
+    startTicker()
+  }
+
+  /** 播放队列拖拽排序：把 songId 对应的歌曲前后移动 steps 行（越界即停在两端） */
+  fun onMoveQueueBy(songId: String, steps: Int) {
+    val state = _uiState.value
+    val from = state.queue.indexOfFirst { it.id == songId }
+    if (from < 0) return
+    val to = (from + steps).coerceIn(0, state.queue.lastIndex)
+    if (to == from) return
+    val moved = state.queue.toMutableList().apply { add(to, removeAt(from)) }
+    _uiState.update { it.copy(queue = moved) }
+  }
+
   /** 拖动进度条：把位置直接跳到指定毫秒 */
   fun onSeekTo(positionMs: Long) {
     val duration = _uiState.value.durationMs

@@ -3,6 +3,7 @@ package com.dlust.ydhl2026.ui.player
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -22,13 +23,17 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -44,7 +50,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -63,6 +71,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dlust.ydhl2026.data.model.LyricLine
 import com.dlust.ydhl2026.data.model.Song
 import com.dlust.ydhl2026.ui.components.ChevronDownIcon
+import com.dlust.ydhl2026.ui.components.CoverArt
+import com.dlust.ydhl2026.ui.components.DragHandleIcon
 import com.dlust.ydhl2026.ui.components.HeartIcon
 import com.dlust.ydhl2026.ui.components.MoreIcon
 import com.dlust.ydhl2026.ui.components.PauseIcon
@@ -105,15 +115,23 @@ fun FullPlayerScreen(
 
   val palette = remember(song.id) { playerPaletteFor(song.id) }
   var showLyrics by remember { mutableStateOf(false) }
+  var showQueue by remember { mutableStateOf(false) }
   var liked by remember(song.id) { mutableStateOf(false) }
 
-  // 歌词面板展开时，返回键先收起面板而不是直接退出播放页
-  BackHandler(enabled = showLyrics) { showLyrics = false }
+  // 面板展开时，返回键先收起面板而不是直接退出播放页
+  BackHandler(enabled = showLyrics || showQueue) {
+    if (showQueue) showQueue = false else showLyrics = false
+  }
 
-  // 面板淡入上滑：0 → 1，关闭时反向播放完才移除
+  // 歌词面板淡入上滑：0 → 1，关闭时反向播放完才移除
   val panelProgress by animateFloatAsState(
     targetValue = if (showLyrics) 1f else 0f,
     animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
+  )
+  // 播放队列底部弹层：从底部滑入
+  val queueProgress by animateFloatAsState(
+    targetValue = if (showQueue) 1f else 0f,
+    animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing)
   )
 
   BoxWithConstraints(modifier = modifier.fillMaxSize()) {
@@ -204,9 +222,7 @@ fun FullPlayerScreen(
         onPrevious = { playerViewModel.onPrevious() },
         onPlayPause = { playerViewModel.onPlayPause() },
         onNext = { playerViewModel.onNext() },
-        onQueue = {
-          Toast.makeText(context, "播放队列下一轮实现", Toast.LENGTH_SHORT).show()
-        }
+        onQueue = { showQueue = true }
       )
 
       Spacer(Modifier.height(10.dp))
@@ -223,6 +239,24 @@ fun FullPlayerScreen(
           .graphicsLayer {
             alpha = panelProgress
             translationY = (1f - panelProgress) * size.height * 0.08f
+          }
+      )
+    }
+
+    if (showQueue || queueProgress > 0.001f) {
+      QueueSheet(
+        queue = state.queue,
+        currentSongId = state.currentSong?.id,
+        isPlaying = state.isPlaying,
+        palette = palette,
+        onPlay = { playerViewModel.onPlayFromQueue(it) },
+        onMoveBy = { id, steps -> playerViewModel.onMoveQueueBy(id, steps) },
+        onClose = { showQueue = false },
+        modifier = Modifier
+          .fillMaxSize()
+          .graphicsLayer {
+            alpha = queueProgress
+            translationY = (1f - queueProgress) * size.height * 0.4f
           }
       )
     }
@@ -702,7 +736,7 @@ private fun LyricsPanelHeader(
           var dragged = 0f
           detectVerticalDragGestures(
             onDragEnd = {
-              if (dragged > 56.dp.toPx()) onClose()
+              if (dragged > 40.dp.toPx()) onClose()
               dragged = 0f
             },
             onVerticalDrag = { _, delta -> dragged += delta }
@@ -740,6 +774,290 @@ private fun LyricsPanelHeader(
       )
       Spacer(Modifier.weight(1f))
       Spacer(Modifier.size(40.dp))
+    }
+  }
+}
+
+/** 队列行高：拖拽时用它把像素位移换算成行数 */
+private val QueueRowHeight = 60.dp
+
+/** 播放队列底部弹层：当前歌高亮、点击切歌、拖动把手排序 */
+@Composable
+private fun QueueSheet(
+  queue: List<Song>,
+  currentSongId: String?,
+  isPlaying: Boolean,
+  palette: PlayerPalette,
+  onPlay: (Int) -> Unit,
+  onMoveBy: (String, Int) -> Unit,
+  onClose: () -> Unit,
+  modifier: Modifier = Modifier
+) {
+  Box(modifier = modifier.fillMaxSize()) {
+    // 遮罩：点击空白处收起
+    Box(
+      modifier = Modifier
+        .fillMaxSize()
+        .background(Color.Black.copy(alpha = 0.5f))
+        .clickable(onClick = onClose)
+    )
+
+    Column(
+      modifier = Modifier
+        .align(Alignment.BottomCenter)
+        .fillMaxWidth()
+        .fillMaxHeight(0.64f)
+        .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+        .background(Brush.verticalGradient(listOf(palette.bgBottom, palette.bgTop)))
+        .border(
+          width = 1.dp,
+          color = Color.White.copy(alpha = 0.08f),
+          shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+        )
+        .navigationBarsPadding()
+    ) {
+      QueueHandle(palette = palette, onClose = onClose)
+
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 22.dp)
+          .padding(bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Text(
+          text = "播放队列",
+          color = palette.text,
+          fontSize = 17.sp,
+          fontWeight = FontWeight.SemiBold
+        )
+        Spacer(Modifier.weight(1f))
+        Text(
+          text = "共 ${queue.size} 首",
+          color = palette.textSecondary,
+          fontSize = 11.sp
+        )
+      }
+
+      if (queue.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+          Text(text = "队列还是空的", color = palette.textSecondary, fontSize = 13.sp)
+        }
+      } else {
+        LazyColumn(
+          modifier = Modifier.fillMaxSize().padding(bottom = 8.dp)
+        ) {
+          itemsIndexed(queue, key = { _, item -> item.id }) { index, item ->
+            QueueRow(
+              index = index,
+              song = item,
+              isCurrent = item.id == currentSongId,
+              isPlaying = isPlaying,
+              palette = palette,
+              onPlay = { onPlay(index) },
+              onMoveBy = { steps -> onMoveBy(item.id, steps) }
+            )
+          }
+        }
+      }
+    }
+  }
+}
+
+/** 弹层顶部的小横条：按住下滑可收起 */
+@Composable
+private fun QueueHandle(
+  palette: PlayerPalette,
+  onClose: () -> Unit
+) {
+  Box(
+    modifier = Modifier
+      .fillMaxWidth()
+      .height(24.dp)
+      .pointerInput(Unit) {
+        var dragged = 0f
+        detectVerticalDragGestures(
+          onDragEnd = {
+            if (dragged > 40.dp.toPx()) onClose()
+            dragged = 0f
+          },
+          onVerticalDrag = { _, delta -> dragged += delta }
+        )
+      },
+    contentAlignment = Alignment.Center
+  ) {
+    Box(
+      modifier = Modifier
+        .width(34.dp)
+        .height(3.dp)
+        .clip(RoundedCornerShape(2.dp))
+        .background(palette.text.copy(alpha = 0.22f))
+    )
+  }
+}
+
+/** 队列中的一行：序号/波形、封面、歌名、时长、拖拽把手 */
+@Composable
+private fun QueueRow(
+  index: Int,
+  song: Song,
+  isCurrent: Boolean,
+  isPlaying: Boolean,
+  palette: PlayerPalette,
+  onPlay: () -> Unit,
+  onMoveBy: (Int) -> Unit
+) {
+  val rowHeightPx = with(LocalDensity.current) { QueueRowHeight.toPx() }
+  var dragging by remember { mutableStateOf(false) }
+  var dragOffset by remember { mutableFloatStateOf(0f) }
+
+  Row(
+    modifier = Modifier
+      .fillMaxWidth()
+      .height(QueueRowHeight)
+      .padding(horizontal = 12.dp)
+      .graphicsLayer {
+        val scale = if (dragging) 1.02f else 1f
+        scaleX = scale
+        scaleY = scale
+        translationY = if (dragging) dragOffset else 0f
+      }
+      .clip(RoundedCornerShape(12.dp))
+      .background(if (isCurrent) palette.primary.copy(alpha = 0.12f) else Color.Transparent)
+      .clickable(onClick = onPlay)
+      .padding(horizontal = 8.dp),
+    verticalAlignment = Alignment.CenterVertically
+  ) {
+    Box(modifier = Modifier.width(28.dp), contentAlignment = Alignment.Center) {
+      if (isCurrent) {
+        PlayingBars(isPlaying = isPlaying, color = palette.primary)
+      } else {
+        Text(text = "${index + 1}", color = palette.textSecondary, fontSize = 11.sp)
+      }
+    }
+
+    CoverArt(
+      seed = song.id,
+      modifier = Modifier.size(36.dp),
+      cornerRadius = 8.dp,
+      label = song.title.take(1),
+      labelSize = 14.sp
+    )
+    Spacer(Modifier.width(10.dp))
+
+    Column(modifier = Modifier.weight(1f)) {
+      Text(
+        text = song.title,
+        color = if (isCurrent) palette.primary else palette.text,
+        fontSize = 13.sp,
+        fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Medium,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+      )
+      Spacer(Modifier.height(2.dp))
+      Text(
+        text = song.artist,
+        color = palette.textSecondary,
+        fontSize = 11.sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+      )
+    }
+
+    Spacer(Modifier.width(6.dp))
+    Text(
+      text = formatDuration(song.durationMs),
+      color = palette.textSecondary,
+      fontSize = 11.sp
+    )
+
+    Box(
+      modifier = Modifier
+        .width(32.dp)
+        .fillMaxHeight()
+        .pointerInput(song.id) {
+          detectVerticalDragGestures(
+            onDragStart = {
+              dragging = true
+              dragOffset = 0f
+            },
+            onDragEnd = {
+              dragging = false
+              dragOffset = 0f
+            },
+            onDragCancel = {
+              dragging = false
+              dragOffset = 0f
+            },
+            onVerticalDrag = { change, dragAmount ->
+              change.consume()
+              dragOffset += dragAmount
+              val steps = (dragOffset / rowHeightPx).toInt()
+              if (steps != 0) {
+                onMoveBy(steps)
+                dragOffset -= steps * rowHeightPx
+              }
+            }
+          )
+        },
+      contentAlignment = Alignment.Center
+    ) {
+      DragHandleIcon(
+        modifier = Modifier.size(15.dp),
+        color = palette.textSecondary.copy(alpha = if (dragging) 1f else 0.55f)
+      )
+    }
+  }
+}
+
+/** 当前播放的三根音量条：播放时跳动，暂停时静止 */
+@Composable
+private fun PlayingBars(
+  isPlaying: Boolean,
+  color: Color,
+  modifier: Modifier = Modifier
+) {
+  if (!isPlaying) {
+    Canvas(modifier = modifier.size(13.dp)) {
+      val barWidth = size.width * 0.2f
+      val gap = size.width * 0.18f
+      listOf(0.45f, 0.8f, 0.6f).forEachIndexed { i, ratio ->
+        val barHeight = size.height * ratio
+        drawRoundRect(
+          color = color,
+          topLeft = Offset(i * (barWidth + gap), size.height - barHeight),
+          size = Size(barWidth, barHeight),
+          cornerRadius = CornerRadius(barWidth / 2, barWidth / 2)
+        )
+      }
+    }
+    return
+  }
+
+  val transition = rememberInfiniteTransition(label = "queuePlayingBars")
+  val bars = List(3) { index ->
+    transition.animateFloat(
+      initialValue = 0.25f,
+      targetValue = 1f,
+      animationSpec = infiniteRepeatable(
+        animation = tween(durationMillis = 520 + index * 130, easing = LinearEasing),
+        repeatMode = RepeatMode.Reverse
+      ),
+      label = "queueBar$index"
+    )
+  }
+
+  Canvas(modifier = modifier.size(13.dp)) {
+    val barWidth = size.width * 0.2f
+    val gap = size.width * 0.18f
+    bars.forEachIndexed { i, animated ->
+      val barHeight = size.height * animated.value
+      drawRoundRect(
+        color = color,
+        topLeft = Offset(i * (barWidth + gap), size.height - barHeight),
+        size = Size(barWidth, barHeight),
+        cornerRadius = CornerRadius(barWidth / 2, barWidth / 2)
+      )
     }
   }
 }
