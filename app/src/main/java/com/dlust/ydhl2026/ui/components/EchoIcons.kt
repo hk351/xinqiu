@@ -217,6 +217,142 @@ fun QueueListIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
   }
 }
 
+/** 收藏：实心/描边心形 */
+@Composable
+fun HeartIcon(
+  modifier: Modifier = Modifier,
+  color: Color = Color.White,
+  filled: Boolean = false
+) {
+  Canvas(modifier = modifier) {
+    val w = size.width
+    val h = size.height
+    val path = Path().apply {
+      moveTo(w * 0.50f, h * 0.84f)
+      cubicTo(w * 0.12f, h * 0.58f, w * 0.10f, h * 0.19f, w * 0.30f, h * 0.15f)
+      cubicTo(w * 0.40f, h * 0.13f, w * 0.46f, h * 0.19f, w * 0.50f, h * 0.25f)
+      cubicTo(w * 0.54f, h * 0.19f, w * 0.60f, h * 0.13f, w * 0.70f, h * 0.15f)
+      cubicTo(w * 0.90f, h * 0.19f, w * 0.88f, h * 0.58f, w * 0.50f, h * 0.84f)
+      close()
+    }
+    if (filled) {
+      drawPath(path = path, color = color)
+    } else {
+      drawPath(
+        path = path,
+        color = color,
+        style = Stroke(width = w * 0.085f, cap = StrokeCap.Round)
+      )
+    }
+  }
+}
+
+/** 更多：三个圆点 */
+@Composable
+fun MoreIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
+  Canvas(modifier = modifier) {
+    val w = size.width
+    val h = size.height
+    listOf(0.16f, 0.50f, 0.84f).forEach { x ->
+      drawCircle(color = color, radius = w * 0.085f, center = Offset(w * x, h * 0.50f))
+    }
+  }
+}
+
+/** 列表循环：上下两条带箭头的循环线 */
+@Composable
+fun RepeatIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
+  Canvas(modifier = modifier) {
+    val w = size.width
+    val h = size.height
+    val stroke = w * 0.09f
+    drawLine(
+      color = color,
+      start = Offset(w * 0.18f, h * 0.28f),
+      end = Offset(w * 0.82f, h * 0.28f),
+      strokeWidth = stroke,
+      cap = StrokeCap.Round
+    )
+    val rightArrow = Path().apply {
+      moveTo(w * 0.64f, h * 0.14f)
+      lineTo(w * 0.82f, h * 0.28f)
+      lineTo(w * 0.64f, h * 0.42f)
+    }
+    drawPath(path = rightArrow, color = color, style = Stroke(width = stroke, cap = StrokeCap.Round))
+    drawLine(
+      color = color,
+      start = Offset(w * 0.82f, h * 0.72f),
+      end = Offset(w * 0.18f, h * 0.72f),
+      strokeWidth = stroke,
+      cap = StrokeCap.Round
+    )
+    val leftArrow = Path().apply {
+      moveTo(w * 0.36f, h * 0.58f)
+      lineTo(w * 0.18f, h * 0.72f)
+      lineTo(w * 0.36f, h * 0.86f)
+    }
+    drawPath(path = leftArrow, color = color, style = Stroke(width = stroke, cap = StrokeCap.Round))
+  }
+}
+
+/** 单曲循环：循环线中间加一个「1」 */
+@Composable
+fun RepeatOneIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
+  Canvas(modifier = modifier) {
+    val w = size.width
+    val h = size.height
+    val stroke = w * 0.09f
+    drawLine(
+      color = color,
+      start = Offset(w * 0.18f, h * 0.28f),
+      end = Offset(w * 0.82f, h * 0.28f),
+      strokeWidth = stroke,
+      cap = StrokeCap.Round
+    )
+    val rightArrow = Path().apply {
+      moveTo(w * 0.64f, h * 0.14f)
+      lineTo(w * 0.82f, h * 0.28f)
+      lineTo(w * 0.64f, h * 0.42f)
+    }
+    drawPath(path = rightArrow, color = color, style = Stroke(width = stroke, cap = StrokeCap.Round))
+    drawLine(
+      color = color,
+      start = Offset(w * 0.82f, h * 0.72f),
+      end = Offset(w * 0.18f, h * 0.72f),
+      strokeWidth = stroke,
+      cap = StrokeCap.Round
+    )
+    val leftArrow = Path().apply {
+      moveTo(w * 0.36f, h * 0.58f)
+      lineTo(w * 0.18f, h * 0.72f)
+      lineTo(w * 0.36f, h * 0.86f)
+    }
+    drawPath(path = leftArrow, color = color, style = Stroke(width = stroke, cap = StrokeCap.Round))
+    // 中间的「1」：一竖 + 顶部小斜杠 + 底部短横
+    drawLine(
+      color = color,
+      start = Offset(w * 0.50f, h * 0.42f),
+      end = Offset(w * 0.50f, h * 0.58f),
+      strokeWidth = stroke * 0.8f,
+      cap = StrokeCap.Round
+    )
+    drawLine(
+      color = color,
+      start = Offset(w * 0.44f, h * 0.46f),
+      end = Offset(w * 0.50f, h * 0.42f),
+      strokeWidth = stroke * 0.8f,
+      cap = StrokeCap.Round
+    )
+    drawLine(
+      color = color,
+      start = Offset(w * 0.44f, h * 0.58f),
+      end = Offset(w * 0.56f, h * 0.58f),
+      strokeWidth = stroke * 0.8f,
+      cap = StrokeCap.Round
+    )
+  }
+}
+
 /** 随机播放：两条交叉箭头 */
 @Composable
 fun ShuffleIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
