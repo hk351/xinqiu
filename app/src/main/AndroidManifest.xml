@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Mock 音频来自网络（SoundHelix 示例 MP3），Media3 播放需要联网 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:name=".EchoApp"
         android:allowBackup="true"

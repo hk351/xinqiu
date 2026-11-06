@@ -96,7 +96,7 @@ import com.dlust.ydhl2026.ui.theme.EchoBackgroundDark
  * - 控制区全部使用 Canvas 图标，不再出现 emoji；
  * - 底部三行歌词，点击后展开全屏歌词面板，可下滑或返回键收起。
  *
- * 本轮仍是假播放：进度由 PlayerViewModel 的定时器推进，不发声。
+ * 已接入 Media3：播放、暂停、拖动进度与切歌都作用在 ExoPlayer 上，进度由播放器回调推进。
  */
 @Composable
 fun FullPlayerScreen(

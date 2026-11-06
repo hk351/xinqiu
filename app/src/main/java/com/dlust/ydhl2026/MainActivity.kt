@@ -10,9 +10,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.dlust.ydhl2026.ui.PlayerViewModelFactory
 import com.dlust.ydhl2026.ui.home.HomeScreen
 import com.dlust.ydhl2026.ui.player.FullPlayerScreen
 import com.dlust.ydhl2026.ui.player.PlayerViewModel
+import com.dlust.ydhl2026.ui.playbackEngine
 import com.dlust.ydhl2026.ui.playlist.PlaylistScreen
 import com.dlust.ydhl2026.ui.screens.LoginScreen
 import com.dlust.ydhl2026.ui.screens.SplashScreen
@@ -26,7 +28,8 @@ class MainActivity : ComponentActivity() {
       Ydhl2026Theme {
         val navController = rememberNavController()
         // 播放状态要在首页（迷你条）和全屏播放器之间共享，所以提升到 Activity 作用域
-        val playerViewModel: PlayerViewModel = viewModel()
+        val playerViewModel: PlayerViewModel =
+          viewModel(factory = PlayerViewModelFactory(playbackEngine()))
         NavHost(navController = navController, startDestination = "splash") {
           composable(route = "splash") {
             SplashScreen(

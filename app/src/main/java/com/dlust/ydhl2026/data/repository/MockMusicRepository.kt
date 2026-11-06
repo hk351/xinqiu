@@ -127,7 +127,10 @@ class MockMusicRepository : MusicRepository {
     albumArtUrl = null,           // 无图片素材，封面由 CoverArt 组件按 id 绘制
     durationMs = durationMs,
     source = "mock",
-    sourceUrl = "mock://$id",
+    // 工程里没有本地音频资源，这里用 SoundHelix 的公开示例 MP3 占位，
+    // 让 Media3 能真实出声；拿到真实音频后只需把这一行换成实际地址
+    sourceUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-" +
+      "${id.substringAfter('-').toInt()}.mp3",
     lyrics = lyricMap[id].orEmpty(),
     lastModifiedAt = MOCK_TIMESTAMP
   )
