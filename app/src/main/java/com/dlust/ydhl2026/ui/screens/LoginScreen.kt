@@ -39,6 +39,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -138,11 +139,25 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
       .padding(horizontal = 28.dp)
   ) {
     Spacer(Modifier.height(12.dp))
-    Row(modifier = Modifier.fillMaxWidth()) {
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.SpaceBetween,
+      verticalAlignment = Alignment.CenterVertically
+    ) {
       DarkModeButton(
         isDark = isDark,
         borderColor = borderColor,
         onClick = { isDark = !isDark }
+      )
+      // 测试入口：跳过账号校验直接进首页，方便频繁重装后快速验证页面
+      Text(
+        text = "跳过",
+        color = textSecondary,
+        fontSize = 13.sp,
+        modifier = Modifier
+          .clip(RoundedCornerShape(8.dp))
+          .clickable(onClick = onLoginSuccess)
+          .padding(horizontal = 10.dp, vertical = 6.dp)
       )
     }
     Spacer(Modifier.height(28.dp))
