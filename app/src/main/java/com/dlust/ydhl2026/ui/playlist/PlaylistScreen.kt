@@ -55,6 +55,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -92,6 +93,7 @@ import com.dlust.ydhl2026.ui.components.CoverArt
 import com.dlust.ydhl2026.ui.components.DragHandleIcon
 import com.dlust.ydhl2026.ui.components.MiniPlayerBar
 import com.dlust.ydhl2026.ui.components.PlayIcon
+import com.dlust.ydhl2026.ui.components.ShuffleIcon
 import com.dlust.ydhl2026.ui.components.TrashIcon
 import com.dlust.ydhl2026.ui.formatDuration
 import com.dlust.ydhl2026.ui.musicRepository
@@ -161,11 +163,12 @@ fun PlaylistScreen(
 
   val snackbarHostState = remember { SnackbarHostState() }
   val scope = rememberCoroutineScope()
+  // 撤销恢复行时改变 key，丢弃该行残留的"已滑出"状态
+  var rowKeyNonce by remember { mutableIntStateOf(0) }
 
   Scaffold(
     modifier = modifier.fillMaxSize(),
     containerColor = background,
-    snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
     bottomBar = {
       currentSong?.let { song ->
         MiniPlayerBar(
@@ -178,7 +181,9 @@ fun PlaylistScreen(
     }
   ) { innerPadding ->
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+    // Snackbar 放在内容层最上方，避免被全屏列表拦截点击
+    Box(modifier = Modifier.fillMaxSize()) {
+      BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
       // 平板/横屏时把内容收进 840dp 的居中列，避免列表被拉得过宽
       val sidePadding = if (maxWidth > 840.dp) (maxWidth - 840.dp) / 2 else 0.dp
 
@@ -227,7 +232,10 @@ fun PlaylistScreen(
             )
           }
 
-          else -> itemsIndexed(items = state.songs, key = { _, song -> song.id }) { index, song ->
+          else -> itemsIndexed(
+            items = state.songs,
+            key = { _, song -> "${song.id}-$rowKeyNonce" }
+          ) { index, song ->
             val isCurrent = song.id == currentSongId
             PlaylistSongRow(
               index = index,
@@ -237,6 +245,7 @@ fun PlaylistScreen(
               accent = accent,
               textPrimary = textPrimary,
               textSecondary = textSecondary,
+              surface = background,
               onPlay = { playerViewModel.onPlaySong(song, state.songs) },
               onRemove = {
                 viewModel.removeSong(song.id)
@@ -246,7 +255,10 @@ fun PlaylistScreen(
                     actionLabel = "撤销",
                     duration = SnackbarDuration.Short
                   )
-                  if (result == SnackbarResult.ActionPerformed) viewModel.undoRemove()
+                  if (result == SnackbarResult.ActionPerformed) {
+                    viewModel.undoRemove()
+                    rowKeyNonce++
+                  }
                 }
               },
               onMoveBy = { steps -> viewModel.moveSongBy(song.id, steps) },
@@ -262,6 +274,15 @@ fun PlaylistScreen(
         background = background,
         textPrimary = textPrimary,
         onBack = onBack
+      )
+      }
+
+      SnackbarHost(
+        hostState = snackbarHostState,
+        modifier = Modifier
+          .align(Alignment.BottomCenter)
+          .padding(horizontal = 12.dp)
+          .padding(bottom = innerPadding.calculateBottomPadding() + 8.dp)
       )
     }
   }
@@ -470,7 +491,7 @@ private fun HeaderActions(
       enabled = enabled,
       accent = accent,
       onClick = onShuffle,
-      leading = { Text(text = "🔀", fontSize = 12.sp) }
+      leading = { ShuffleIcon(modifier = Modifier.size(13.dp), color = accent) }
     )
   }
 }
@@ -526,6 +547,7 @@ private fun PlaylistSongRow(
   accent: Color,
   textPrimary: Color,
   textSecondary: Color,
+  surface: Color,
   onPlay: () -> Unit,
   onRemove: () -> Unit,
   onMoveBy: (Int) -> Unit,
@@ -561,14 +583,15 @@ private fun PlaylistSongRow(
       Row(
         modifier = Modifier
           .fillMaxSize()
-          .padding(horizontal = 4.dp)
-          .clip(RoundedCornerShape(12.dp))
+          // 红层向内缩，静止时被不透明的行内容完全盖住，滑动时才露出
+          .padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 4.dp)
+          .clip(RoundedCornerShape(8.dp))
           .background(
             Brush.horizontalGradient(
               listOf(Color(0xFFB02328), DangerRed)
             )
           )
-          .padding(horizontal = 20.dp),
+          .padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically
       ) {
@@ -589,6 +612,8 @@ private fun PlaylistSongRow(
           translationY = if (dragging) dragOffset else 0f
         }
         .clip(RoundedCornerShape(12.dp))
+        // 先铺页面底色盖住左滑删除层，再叠加交互着色
+        .background(surface)
         .background(
           when {
             dragging -> accent.copy(alpha = 0.16f)

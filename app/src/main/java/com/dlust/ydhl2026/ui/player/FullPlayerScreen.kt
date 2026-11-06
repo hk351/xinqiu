@@ -100,7 +100,7 @@ fun FullPlayerScreen(
       .fillMaxSize()
       .background(Brush.verticalGradient(listOf(palette.bgTop, palette.bgBottom)))
   ) {
-    val coverSize = minOf(maxWidth * 0.62f, maxHeight * 0.32f)
+    val coverSize = minOf(maxWidth * 0.62f, maxHeight * 0.28f)
 
     Column(
       modifier = Modifier
@@ -133,7 +133,7 @@ fun FullPlayerScreen(
         Spacer(Modifier.width(40.dp))
       }
 
-      Spacer(Modifier.height(28.dp))
+      Spacer(Modifier.height(20.dp))
 
       // 大封面：主题色光盘，播放时旋转
       Box(contentAlignment = Alignment.Center) {
@@ -171,7 +171,7 @@ fun FullPlayerScreen(
         )
       }
 
-      Spacer(Modifier.height(32.dp))
+      Spacer(Modifier.height(24.dp))
 
       // 歌名 / 歌手
       Text(
@@ -190,7 +190,7 @@ fun FullPlayerScreen(
         maxLines = 1
       )
 
-      Spacer(Modifier.height(26.dp))
+      Spacer(Modifier.height(20.dp))
 
       // 进度条 + 时间
       SeekBar(
@@ -222,7 +222,7 @@ fun FullPlayerScreen(
         )
       }
 
-      Spacer(Modifier.height(22.dp))
+      Spacer(Modifier.height(18.dp))
 
       // 控制区：模式 / 上一首 / 播放 / 下一首 / 队列
       Row(

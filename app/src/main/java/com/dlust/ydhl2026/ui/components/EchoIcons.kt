@@ -216,3 +216,57 @@ fun QueueListIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
     }
   }
 }
+
+/** 随机播放：两条交叉箭头 */
+@Composable
+fun ShuffleIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
+  Canvas(modifier = modifier) {
+    val w = size.width
+    val h = size.height
+    val stroke = w * 0.10f
+    drawLine(
+      color = color,
+      start = Offset(w * 0.10f, h * 0.24f),
+      end = Offset(w * 0.74f, h * 0.74f),
+      strokeWidth = stroke,
+      cap = StrokeCap.Round
+    )
+    drawLine(
+      color = color,
+      start = Offset(w * 0.10f, h * 0.76f),
+      end = Offset(w * 0.74f, h * 0.26f),
+      strokeWidth = stroke,
+      cap = StrokeCap.Round
+    )
+    // 右上箭头
+    drawLine(
+      color = color,
+      start = Offset(w * 0.58f, h * 0.74f),
+      end = Offset(w * 0.74f, h * 0.74f),
+      strokeWidth = stroke,
+      cap = StrokeCap.Round
+    )
+    drawLine(
+      color = color,
+      start = Offset(w * 0.74f, h * 0.74f),
+      end = Offset(w * 0.74f, h * 0.58f),
+      strokeWidth = stroke,
+      cap = StrokeCap.Round
+    )
+    // 右下箭头
+    drawLine(
+      color = color,
+      start = Offset(w * 0.58f, h * 0.26f),
+      end = Offset(w * 0.74f, h * 0.26f),
+      strokeWidth = stroke,
+      cap = StrokeCap.Round
+    )
+    drawLine(
+      color = color,
+      start = Offset(w * 0.74f, h * 0.26f),
+      end = Offset(w * 0.74f, h * 0.42f),
+      strokeWidth = stroke,
+      cap = StrokeCap.Round
+    )
+  }
+}
