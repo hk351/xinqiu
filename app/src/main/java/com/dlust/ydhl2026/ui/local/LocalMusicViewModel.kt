@@ -1,0 +1,111 @@
+package com.dlust.ydhl2026.ui.local
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.dlust.ydhl2026.data.local.LocalMusicSource
+import com.dlust.ydhl2026.data.local.LocalMusicStore
+import com.dlust.ydhl2026.data.model.Song
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+/** 页面阶段：未授权 → 扫描中 → 就绪 / 空态 */
+enum class LocalMusicPhase { PERMISSION, SCANNING, READY, EMPTY }
+
+/** 列表排序方式，点击排序按钮循环切换 */
+enum class LocalMusicSort(val label: String) {
+  TITLE("歌名"),
+  DURATION("时长"),
+  ADDED("最近添加")
+}
+
+/** 本地音乐页 UI 状态：songs 是扫描原始结果，visible 是搜索+排序后的展示列表 */
+data class LocalMusicUiState(
+  val phase: LocalMusicPhase = LocalMusicPhase.PERMISSION,
+  val songs: List<Song> = emptyList(),
+  val query: String = "",
+  val sort: LocalMusicSort = LocalMusicSort.TITLE,
+  val visible: List<Song> = emptyList()
+)
+
+/**
+ * 本地音乐页状态管理。
+ * 权限由界面（ActivityResult）申请，结果回调进来；扫描交给 LocalMusicSource，
+ * 结果写入 LocalMusicStore 供首页入口卡显示歌曲数。
+ */
+class LocalMusicViewModel(
+  private val source: LocalMusicSource,
+  private val store: LocalMusicStore
+) : ViewModel() {
+
+  private val _uiState = MutableStateFlow(LocalMusicUiState())
+  val uiState: StateFlow<LocalMusicUiState> = _uiState.asStateFlow()
+
+  init {
+    // 之前扫过就直接展示缓存，避免每次进页面都等扫描动画
+    val cached = store.songs.value
+    if (cached.isNotEmpty()) {
+      _uiState.update {
+        it.copy(phase = LocalMusicPhase.READY, songs = cached, visible = filterSort(cached, "", it.sort))
+      }
+    }
+  }
+
+  /** 界面拿到权限结果后回调 */
+  fun onPermissionResult(granted: Boolean) {
+    if (granted) startScan()
+  }
+
+  fun startScan() {
+    _uiState.update { it.copy(phase = LocalMusicPhase.SCANNING) }
+    viewModelScope.launch {
+      val songs = runCatching { source.scan() }.getOrDefault(emptyList())
+      store.replace(songs)
+      _uiState.update {
+        if (songs.isEmpty()) {
+          it.copy(phase = LocalMusicPhase.EMPTY, songs = emptyList(), visible = emptyList(), query = "")
+        } else {
+          it.copy(
+            phase = LocalMusicPhase.READY,
+            songs = songs,
+            visible = filterSort(songs, it.query, it.sort)
+          )
+        }
+      }
+    }
+  }
+
+  fun onQueryChange(query: String) {
+    _uiState.update {
+      it.copy(query = query, visible = filterSort(it.songs, query, it.sort))
+    }
+  }
+
+  /** 排序按钮：歌名 → 时长 → 最近添加 → 歌名 */
+  fun onSortChange() {
+    _uiState.update {
+      val next = LocalMusicSort.entries[(it.sort.ordinal + 1) % LocalMusicSort.entries.size]
+      it.copy(sort = next, visible = filterSort(it.songs, it.query, next))
+    }
+  }
+
+  companion object {
+
+    /** 搜索过滤 + 排序的纯函数，单独提出方便单测 */
+    fun filterSort(songs: List<Song>, query: String, sort: LocalMusicSort): List<Song> {
+      val keyword = query.trim()
+      val filtered = if (keyword.isEmpty()) songs else songs.filter {
+        it.title.contains(keyword, ignoreCase = true) ||
+          it.artist.contains(keyword, ignoreCase = true) ||
+          (it.album?.contains(keyword, ignoreCase = true) == true)
+      }
+      return when (sort) {
+        LocalMusicSort.TITLE -> filtered.sortedBy { it.title }
+        LocalMusicSort.DURATION -> filtered.sortedByDescending { it.durationMs }
+        LocalMusicSort.ADDED -> filtered.sortedByDescending { it.lastModifiedAt }
+      }
+    }
+  }
+}

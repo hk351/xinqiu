@@ -2,6 +2,7 @@ package com.dlust.ydhl2026.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dlust.ydhl2026.data.local.LocalMusicStore
 import com.dlust.ydhl2026.data.model.Playlist
 import com.dlust.ydhl2026.data.model.Song
 import com.dlust.ydhl2026.data.repository.MusicRepository
@@ -20,6 +21,7 @@ data class HomeUiState(
   val recentSongs: List<Song> = emptyList(),
   val searchQuery: String = "",
   val searchResults: List<Song> = emptyList(),
+  val localSongCount: Int = 0,
   val isLoading: Boolean = true
 )
 
@@ -33,7 +35,10 @@ sealed interface HomeAction {
  * 首页状态管理。
  * 页面只负责把 HomeAction 丢进来，其余全部由这里改状态。
  */
-class HomeViewModel(private val repository: MusicRepository) : ViewModel() {
+class HomeViewModel(
+  private val repository: MusicRepository,
+  private val localMusicStore: LocalMusicStore
+) : ViewModel() {
 
   private val _uiState = MutableStateFlow(HomeUiState())
   val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -42,11 +47,20 @@ class HomeViewModel(private val repository: MusicRepository) : ViewModel() {
 
   init {
     viewModelScope.launch {
-      combine(repository.playlists(), repository.recentSongs()) { playlists, recent ->
-        playlists to recent
-      }.collect { (playlists, recent) ->
+      combine(
+        repository.playlists(),
+        repository.recentSongs(),
+        localMusicStore.songs
+      ) { playlists, recent, localSongs ->
+        Triple(playlists, recent, localSongs.size)
+      }.collect { (playlists, recent, localCount) ->
         _uiState.update {
-          it.copy(playlists = playlists, recentSongs = recent, isLoading = false)
+          it.copy(
+            playlists = playlists,
+            recentSongs = recent,
+            localSongCount = localCount,
+            isLoading = false
+          )
         }
       }
     }

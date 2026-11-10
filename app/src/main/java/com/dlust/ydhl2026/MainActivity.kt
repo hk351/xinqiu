@@ -12,6 +12,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.dlust.ydhl2026.ui.PlayerViewModelFactory
 import com.dlust.ydhl2026.ui.home.HomeScreen
+import com.dlust.ydhl2026.ui.local.LocalMusicScreen
 import com.dlust.ydhl2026.ui.player.FullPlayerScreen
 import com.dlust.ydhl2026.ui.player.PlayerViewModel
 import com.dlust.ydhl2026.ui.playbackEngine
@@ -55,7 +56,14 @@ class MainActivity : ComponentActivity() {
               onOpenPlayer = { navController.navigate(route = "player") },
               onPlaylistClick = { playlist ->
                 navController.navigate(route = "playlist/${playlist.id}")
-              }
+              },
+              onOpenLocalMusic = { navController.navigate(route = "local") }
+            )
+          }
+          composable(route = "local") {
+            LocalMusicScreen(
+              playerViewModel = playerViewModel,
+              onBack = { navController.popBackStack() }
             )
           }
           composable(

@@ -1,6 +1,9 @@
 package com.dlust.ydhl2026
 
 import android.app.Application
+import com.dlust.ydhl2026.data.local.LocalMusicSource
+import com.dlust.ydhl2026.data.local.LocalMusicStore
+import com.dlust.ydhl2026.data.local.MediaStoreLocalMusicSource
 import com.dlust.ydhl2026.data.playback.Media3PlaybackEngine
 import com.dlust.ydhl2026.data.playback.PlaybackEngine
 import com.dlust.ydhl2026.data.repository.MockMusicRepository
@@ -8,7 +11,7 @@ import com.dlust.ydhl2026.data.repository.MusicRepository
 
 /**
  * 手动 DI 容器（本课程不使用 Hilt）：
- * Repository 与播放引擎在这里创建，ViewModel 通过构造函数接收，依赖关系一眼可见。
+ * Repository、播放引擎、本地音乐扫描都在这里创建，ViewModel 通过构造函数接收，依赖关系一眼可见。
  */
 class EchoApp : Application() {
 
@@ -19,11 +22,18 @@ class EchoApp : Application() {
   lateinit var playbackEngine: PlaybackEngine
     private set
 
+  lateinit var localMusicSource: LocalMusicSource
+    private set
+
+  /** 本地音乐扫描结果的内存缓存，首页入口卡与本地音乐页共享 */
+  val localMusicStore = LocalMusicStore()
+
   override fun onCreate() {
     super.onCreate()
     // 当前是 Mock 数据源；接入真实数据时只替换这一行
     musicRepository = MockMusicRepository()
     playbackEngine = Media3PlaybackEngine(this)
+    localMusicSource = MediaStoreLocalMusicSource(this)
   }
 
   override fun onTerminate() {

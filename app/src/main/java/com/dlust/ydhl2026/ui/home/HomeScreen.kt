@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -28,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -39,11 +41,13 @@ import com.dlust.ydhl2026.data.model.Playlist
 import com.dlust.ydhl2026.data.model.Song
 import com.dlust.ydhl2026.ui.HomeViewModelFactory
 import com.dlust.ydhl2026.ui.components.MiniPlayerBar
+import com.dlust.ydhl2026.ui.localMusicStore
 import com.dlust.ydhl2026.ui.musicRepository
 import com.dlust.ydhl2026.ui.player.PlayerViewModel
 import com.dlust.ydhl2026.ui.theme.EchoBackground
 import com.dlust.ydhl2026.ui.theme.EchoBackgroundDark
 import com.dlust.ydhl2026.ui.theme.EchoBlue
+import com.dlust.ydhl2026.ui.theme.EchoBlueLight
 import com.dlust.ydhl2026.ui.theme.EchoBorder
 import com.dlust.ydhl2026.ui.theme.EchoBorderDark
 import com.dlust.ydhl2026.ui.theme.EchoTextPrimary
@@ -65,11 +69,14 @@ fun HomeScreen(
   playerViewModel: PlayerViewModel,
   onOpenPlayer: () -> Unit = {},
   onPlaylistClick: (Playlist) -> Unit = {},
+  onOpenLocalMusic: () -> Unit = {},
   modifier: Modifier = Modifier
 ) {
   val context = LocalContext.current
   val repository = remember { context.musicRepository() }
-  val homeViewModel: HomeViewModel = viewModel(factory = HomeViewModelFactory(repository))
+  val localMusicStore = remember { context.localMusicStore() }
+  val homeViewModel: HomeViewModel =
+    viewModel(factory = HomeViewModelFactory(repository, localMusicStore))
   val state by homeViewModel.uiState.collectAsStateWithLifecycle()
   val playerState by playerViewModel.uiState.collectAsStateWithLifecycle()
   val isDark = isSystemInDarkTheme()
@@ -103,6 +110,7 @@ fun HomeScreen(
           state = state,
           isDark = isDark,
           onPlaylistClick = onPlaylistClick,
+          onOpenLocalMusic = onOpenLocalMusic,
           onPlaySong = { song -> playerViewModel.onPlaySong(song, state.recentSongs) }
         )
 
@@ -176,6 +184,7 @@ private fun PlaylistsTab(
   state: HomeUiState,
   isDark: Boolean,
   onPlaylistClick: (Playlist) -> Unit,
+  onOpenLocalMusic: () -> Unit,
   onPlaySong: (Song) -> Unit,
   modifier: Modifier = Modifier
 ) {
@@ -186,6 +195,13 @@ private fun PlaylistsTab(
     horizontalArrangement = Arrangement.spacedBy(12.dp),
     verticalArrangement = Arrangement.spacedBy(16.dp)
   ) {
+    item(span = { GridItemSpan(maxLineSpan) }) {
+      LocalMusicEntryCard(
+        songCount = state.localSongCount,
+        isDark = isDark,
+        onClick = onOpenLocalMusic
+      )
+    }
     item(span = { GridItemSpan(maxLineSpan) }) {
       SectionHeader(title = "我的歌单", isDark = isDark)
     }
@@ -208,5 +224,56 @@ private fun PlaylistsTab(
         )
       }
     }
+  }
+}
+
+/**
+ * 本地音乐入口卡：放在「我的歌单」上方的整行渐变卡。
+ * 扫描过就显示歌曲数，否则引导「读取手机里的歌曲」。
+ */
+@Composable
+private fun LocalMusicEntryCard(
+  songCount: Int,
+  isDark: Boolean,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier
+) {
+  val shape = RoundedCornerShape(18.dp)
+  Row(
+    modifier = modifier
+      .fillMaxWidth()
+      .clip(shape)
+      .background(
+        Brush.horizontalGradient(listOf(EchoBlue, EchoBlueLight))
+      )
+      .clickable(onClick = onClick)
+      .padding(horizontal = 16.dp, vertical = 14.dp),
+    verticalAlignment = Alignment.CenterVertically
+  ) {
+    Box(
+      modifier = Modifier
+        .size(42.dp)
+        .clip(RoundedCornerShape(13.dp))
+        .background(Color.White.copy(alpha = 0.17f)),
+      contentAlignment = Alignment.Center
+    ) {
+      Text(text = "♪", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+    }
+    Spacer(Modifier.width(13.dp))
+    Column(modifier = Modifier.weight(1f)) {
+      Text(
+        text = "本地音乐",
+        color = Color.White,
+        fontSize = 14.sp,
+        fontWeight = FontWeight.SemiBold
+      )
+      Spacer(Modifier.height(3.dp))
+      Text(
+        text = if (songCount > 0) "已扫描到 $songCount 首歌曲" else "扫描手机里的歌曲",
+        color = Color.White.copy(alpha = 0.72f),
+        fontSize = 11.5.sp
+      )
+    }
+    Text(text = "›", color = Color.White.copy(alpha = 0.7f), fontSize = 18.sp)
   }
 }

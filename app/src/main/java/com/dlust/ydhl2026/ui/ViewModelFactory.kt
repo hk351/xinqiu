@@ -4,9 +4,12 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.dlust.ydhl2026.EchoApp
+import com.dlust.ydhl2026.data.local.LocalMusicSource
+import com.dlust.ydhl2026.data.local.LocalMusicStore
 import com.dlust.ydhl2026.data.playback.PlaybackEngine
 import com.dlust.ydhl2026.data.repository.MusicRepository
 import com.dlust.ydhl2026.ui.home.HomeViewModel
+import com.dlust.ydhl2026.ui.local.LocalMusicViewModel
 import com.dlust.ydhl2026.ui.player.PlayerViewModel
 import com.dlust.ydhl2026.ui.playlist.PlaylistViewModel
 
@@ -20,13 +23,20 @@ fun Context.musicRepository(): MusicRepository =
 fun Context.playbackEngine(): PlaybackEngine =
   (applicationContext as EchoApp).playbackEngine
 
+fun Context.localMusicSource(): LocalMusicSource =
+  (applicationContext as EchoApp).localMusicSource
+
+fun Context.localMusicStore(): LocalMusicStore =
+  (applicationContext as EchoApp).localMusicStore
+
 class HomeViewModelFactory(
-  private val repository: MusicRepository
+  private val repository: MusicRepository,
+  private val localMusicStore: LocalMusicStore
 ) : ViewModelProvider.Factory {
 
   @Suppress("UNCHECKED_CAST")
   override fun <T : ViewModel> create(modelClass: Class<T>): T =
-    HomeViewModel(repository) as T
+    HomeViewModel(repository, localMusicStore) as T
 }
 
 class PlaylistViewModelFactory(
@@ -46,4 +56,14 @@ class PlayerViewModelFactory(
   @Suppress("UNCHECKED_CAST")
   override fun <T : ViewModel> create(modelClass: Class<T>): T =
     PlayerViewModel(engine) as T
+}
+
+class LocalMusicViewModelFactory(
+  private val source: LocalMusicSource,
+  private val store: LocalMusicStore
+) : ViewModelProvider.Factory {
+
+  @Suppress("UNCHECKED_CAST")
+  override fun <T : ViewModel> create(modelClass: Class<T>): T =
+    LocalMusicViewModel(source, store) as T
 }
