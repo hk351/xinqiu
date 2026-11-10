@@ -88,6 +88,7 @@ private val DarkTextPrimary = Color(0xFFE8EAED)
 fun LocalMusicScreen(
   playerViewModel: PlayerViewModel,
   onBack: () -> Unit,
+  onOpenPlayer: () -> Unit,
   modifier: Modifier = Modifier
 ) {
   val context = LocalContext.current
@@ -135,7 +136,7 @@ fun LocalMusicScreen(
           song = song,
           isPlaying = playerState.isPlaying,
           onTogglePlay = playerViewModel::onPlayPause,
-          onClick = onBack   // 返回首页即可展开全屏播放器（首页迷你条可点击进入）
+          onClick = onOpenPlayer
         )
       }
     }

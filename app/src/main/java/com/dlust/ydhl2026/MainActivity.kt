@@ -63,7 +63,8 @@ class MainActivity : ComponentActivity() {
           composable(route = "local") {
             LocalMusicScreen(
               playerViewModel = playerViewModel,
-              onBack = { navController.popBackStack() }
+              onBack = { navController.popBackStack() },
+              onOpenPlayer = { navController.navigate(route = "player") }
             )
           }
           composable(
