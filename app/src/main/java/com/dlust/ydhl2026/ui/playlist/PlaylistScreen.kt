@@ -102,12 +102,13 @@ import com.dlust.ydhl2026.ui.player.playerPaletteFor
 import com.dlust.ydhl2026.ui.theme.EchoBackground
 import com.dlust.ydhl2026.ui.theme.EchoBackgroundDark
 import com.dlust.ydhl2026.ui.theme.EchoTextPrimary
+import com.dlust.ydhl2026.ui.theme.EchoTextPrimaryDark
 import com.dlust.ydhl2026.ui.theme.EchoTextSecondary
 import kotlinx.coroutines.launch
 
 private val SongRowHeight = 72.dp
 private val TopBarHeight = 56.dp
-private val DarkTextPrimary = Color(0xFFE8EAED)
+private val DarkTextPrimary = EchoTextPrimaryDark
 private val DarkTextSecondary = Color(0xFF9AA3AD)
 private val DangerRed = Color(0xFFE5484D)
 
@@ -174,6 +175,11 @@ fun PlaylistScreen(
         MiniPlayerBar(
           song = song,
           isPlaying = isPlaying,
+          progress = if (playerState.durationMs > 0L) {
+            playerState.positionMs.toFloat() / playerState.durationMs
+          } else {
+            0f
+          },
           onTogglePlay = playerViewModel::onPlayPause,
           onClick = onOpenPlayer
         )

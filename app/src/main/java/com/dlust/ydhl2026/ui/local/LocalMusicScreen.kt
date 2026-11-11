@@ -76,9 +76,10 @@ import com.dlust.ydhl2026.ui.theme.EchoBorder
 import com.dlust.ydhl2026.ui.theme.EchoBorderDark
 import com.dlust.ydhl2026.ui.theme.EchoCardDark
 import com.dlust.ydhl2026.ui.theme.EchoTextPrimary
+import com.dlust.ydhl2026.ui.theme.EchoTextPrimaryDark
 import com.dlust.ydhl2026.ui.theme.EchoTextSecondary
 
-private val DarkTextPrimary = Color(0xFFE8EAED)
+private val DarkTextPrimary = EchoTextPrimaryDark
 
 /**
  * 本地音乐页：四种状态 —— 未授权 / 扫描中 / 就绪列表 / 空态。
@@ -135,6 +136,11 @@ fun LocalMusicScreen(
         MiniPlayerBar(
           song = song,
           isPlaying = playerState.isPlaying,
+          progress = if (playerState.durationMs > 0L) {
+            playerState.positionMs.toFloat() / playerState.durationMs
+          } else {
+            0f
+          },
           onTogglePlay = playerViewModel::onPlayPause,
           onClick = onOpenPlayer
         )

@@ -1,8 +1,10 @@
 package com.dlust.ydhl2026.ui.home
 
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,18 +31,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dlust.ydhl2026.data.model.Song
 import com.dlust.ydhl2026.ui.components.CoverArt
+import com.dlust.ydhl2026.ui.components.EmptyState
+import com.dlust.ydhl2026.ui.components.SearchIcon
+import com.dlust.ydhl2026.ui.components.pressScale
 import com.dlust.ydhl2026.ui.formatDuration
 import com.dlust.ydhl2026.ui.theme.EchoBlue
 import com.dlust.ydhl2026.ui.theme.EchoBorder
 import com.dlust.ydhl2026.ui.theme.EchoBorderDark
 import com.dlust.ydhl2026.ui.theme.EchoCardDark
 import com.dlust.ydhl2026.ui.theme.EchoTextPrimary
+import com.dlust.ydhl2026.ui.theme.EchoTextPrimaryDark
 import com.dlust.ydhl2026.ui.theme.EchoTextSecondary
 
 /**
@@ -55,7 +61,7 @@ fun SearchTabContent(
   onPlaySong: (Song) -> Unit,
   modifier: Modifier = Modifier
 ) {
-  val textPrimary = if (isDark) Color(0xFFE8EAED) else EchoTextPrimary
+  val textPrimary = if (isDark) EchoTextPrimaryDark else EchoTextPrimary
 
   Column(modifier = modifier.fillMaxSize()) {
     SearchField(
@@ -67,8 +73,20 @@ fun SearchTabContent(
         .padding(horizontal = 16.dp, vertical = 10.dp)
     )
     when {
-      query.isBlank() -> HintText("输入歌名、歌手或专辑开始搜索", isDark)
-      results.isEmpty() -> HintText("没有找到「$query」相关的内容", isDark)
+      query.isBlank() -> EmptyState(
+        title = "找一首歌",
+        description = "输入歌名、歌手或专辑名\n比如「稻香」或「周杰伦」",
+        isDark = isDark,
+        icon = { SearchIcon(modifier = Modifier.size(28.dp), color = EchoBlue) }
+      )
+
+      results.isEmpty() -> EmptyState(
+        title = "没有找到相关歌曲",
+        description = "换个关键词试试\n只支持歌名、歌手和专辑的模糊匹配",
+        isDark = isDark,
+        icon = { SearchIcon(modifier = Modifier.size(28.dp), color = EchoTextSecondary) }
+      )
+
       else -> LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
@@ -120,7 +138,7 @@ private fun SearchField(
           onValueChange = onQueryChange,
           singleLine = true,
           textStyle = TextStyle(
-            color = if (isDark) Color(0xFFE8EAED) else EchoTextPrimary,
+            color = if (isDark) EchoTextPrimaryDark else EchoTextPrimary,
             fontSize = 14.sp
           ),
           cursorBrush = SolidColor(EchoBlue),
@@ -139,11 +157,17 @@ private fun SongRow(
   onClick: () -> Unit,
   modifier: Modifier = Modifier
 ) {
+  val interactionSource = remember { MutableInteractionSource() }
   Row(
     modifier = modifier
       .fillMaxWidth()
       .clip(RoundedCornerShape(10.dp))
-      .clickable(onClick = onClick)
+      .pressScale(interactionSource)
+      .clickable(
+        interactionSource = interactionSource,
+        indication = LocalIndication.current,
+        onClick = onClick
+      )
       .padding(vertical = 8.dp, horizontal = 4.dp),
     verticalAlignment = Alignment.CenterVertically
   ) {
@@ -158,7 +182,7 @@ private fun SongRow(
     Column(modifier = Modifier.weight(1f)) {
       Text(
         text = song.title,
-        color = if (isDark) Color(0xFFE8EAED) else EchoTextPrimary,
+        color = if (isDark) EchoTextPrimaryDark else EchoTextPrimary,
         fontSize = 14.sp,
         fontWeight = FontWeight.Medium,
         maxLines = 1,
@@ -182,19 +206,3 @@ private fun SongRow(
   }
 }
 
-@Composable
-private fun HintText(text: String, isDark: Boolean) {
-  Box(
-    modifier = Modifier
-      .fillMaxSize()
-      .padding(32.dp),
-    contentAlignment = Alignment.TopCenter
-  ) {
-    Text(
-      text = text,
-      color = if (isDark) Color(0xFF6B7280) else EchoTextSecondary,
-      fontSize = 13.sp,
-      textAlign = TextAlign.Center
-    )
-  }
-}

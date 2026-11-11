@@ -1,6 +1,8 @@
 package com.dlust.ydhl2026.ui.components
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -9,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -30,6 +33,8 @@ private val CoverGradients = listOf(
 /**
  * 通用封面：没有图片素材，用 seed 派生一个稳定的渐变色块 + 可选文字。
  * 同一个 seed 每次渲染颜色都一致，不会闪烁。
+ *
+ * 质感由三层叠出来：底色渐变 → 对角高光 → 右上角柔光，最上面再压一圈细内描边。
  */
 @Composable
 fun CoverArt(
@@ -42,17 +47,52 @@ fun CoverArt(
   val gradient = remember(seed) {
     CoverGradients[(seed.hashCode() and 0x7FFFFFFF) % CoverGradients.size]
   }
+  val shape = RoundedCornerShape(cornerRadius)
   Box(
     modifier = modifier
-      .clip(RoundedCornerShape(cornerRadius))
+      .clip(shape)
       .background(Brush.linearGradient(listOf(gradient.first, gradient.second))),
     contentAlignment = Alignment.Center
   ) {
+    // 对角高光：左上提亮、右下压暗，让平面色块有体积感
+    Box(
+      modifier = Modifier
+        .matchParentSize()
+        .background(
+          Brush.linearGradient(
+            listOf(
+              Color.White.copy(alpha = 0.26f),
+              Color.Transparent,
+              Color.Black.copy(alpha = 0.12f)
+            )
+          )
+        )
+    )
+    // 右上角柔光，模拟光源
+    Canvas(modifier = Modifier.matchParentSize()) {
+      val radius = size.minDimension * 0.58f
+      val center = Offset(size.width * 0.84f, size.height * 0.12f)
+      drawCircle(
+        brush = Brush.radialGradient(
+          colors = listOf(Color.White.copy(alpha = 0.18f), Color.Transparent),
+          center = center,
+          radius = radius
+        ),
+        radius = radius,
+        center = center
+      )
+    }
     Text(
       text = label,
       color = Color.White.copy(alpha = 0.92f),
       fontSize = labelSize,
       fontWeight = FontWeight.Bold
+    )
+    // 细内描边压在最上层，避免纯色块边缘发虚
+    Box(
+      modifier = Modifier
+        .matchParentSize()
+        .border(1.dp, Color.White.copy(alpha = 0.12f), shape)
     )
   }
 }

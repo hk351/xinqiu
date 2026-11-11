@@ -1,8 +1,20 @@
 package com.dlust.ydhl2026.ui.home
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -41,6 +53,7 @@ import com.dlust.ydhl2026.data.model.Playlist
 import com.dlust.ydhl2026.data.model.Song
 import com.dlust.ydhl2026.ui.HomeViewModelFactory
 import com.dlust.ydhl2026.ui.components.MiniPlayerBar
+import com.dlust.ydhl2026.ui.components.pressScale
 import com.dlust.ydhl2026.ui.localMusicStore
 import com.dlust.ydhl2026.ui.musicRepository
 import com.dlust.ydhl2026.ui.player.PlayerViewModel
@@ -51,8 +64,9 @@ import com.dlust.ydhl2026.ui.theme.EchoBlueLight
 import com.dlust.ydhl2026.ui.theme.EchoBorder
 import com.dlust.ydhl2026.ui.theme.EchoBorderDark
 import com.dlust.ydhl2026.ui.theme.EchoTextPrimary
+import com.dlust.ydhl2026.ui.theme.EchoTextPrimaryDark
 
-private val DarkTextPrimary = Color(0xFFE8EAED)
+private val DarkTextPrimary = EchoTextPrimaryDark
 
 /**
  * 首页（原型图2 的歌单页）。
@@ -85,13 +99,28 @@ fun HomeScreen(
     modifier = modifier.fillMaxSize(),
     containerColor = if (isDark) EchoBackgroundDark else EchoBackground,
     bottomBar = {
-      playerState.currentSong?.let { song ->
-        MiniPlayerBar(
-          song = song,
-          isPlaying = playerState.isPlaying,
-          onTogglePlay = playerViewModel::onPlayPause,
-          onClick = onOpenPlayer
-        )
+      // 迷你条随当前歌曲出现/消失，用滑入滑出代替硬跳，避免底部内容瞬间抽动
+      AnimatedVisibility(
+        visible = playerState.currentSong != null,
+        enter = slideInVertically(animationSpec = tween(260), initialOffsetY = { it }) +
+          fadeIn(tween(200)),
+        exit = slideOutVertically(animationSpec = tween(200), targetOffsetY = { it }) +
+          fadeOut(tween(160))
+      ) {
+        val song = playerState.currentSong
+        if (song != null) {
+          MiniPlayerBar(
+            song = song,
+            isPlaying = playerState.isPlaying,
+            progress = if (playerState.durationMs > 0L) {
+              playerState.positionMs.toFloat() / playerState.durationMs
+            } else {
+              0f
+            },
+            onTogglePlay = playerViewModel::onPlayPause,
+            onClick = onOpenPlayer
+          )
+        }
       }
     }
   ) { innerPadding ->
@@ -105,24 +134,37 @@ fun HomeScreen(
         isDark = isDark,
         onSelect = { homeViewModel.onAction(HomeAction.SelectTab(it)) }
       )
-      when (state.selectedTab) {
-        HomeTab.PLAYLISTS -> PlaylistsTab(
-          state = state,
-          isDark = isDark,
-          onPlaylistClick = onPlaylistClick,
-          onOpenLocalMusic = onOpenLocalMusic,
-          onPlaySong = { song -> playerViewModel.onPlaySong(song, state.recentSongs) }
-        )
+      // Tab 之间做淡入 + 轻微横向位移，代替瞬间切换
+      AnimatedContent(
+        targetState = state.selectedTab,
+        transitionSpec = {
+          (fadeIn(tween(180)) + slideInHorizontally(tween(220)) { it / 28 })
+            .togetherWith(fadeOut(tween(120)))
+        },
+        label = "homeTabContent"
+      ) { tab ->
+        when (tab) {
+          HomeTab.PLAYLISTS -> PlaylistsTab(
+            state = state,
+            isDark = isDark,
+            onPlaylistClick = onPlaylistClick,
+            onOpenLocalMusic = onOpenLocalMusic,
+            onPlaySong = { song -> playerViewModel.onPlaySong(song, state.recentSongs) }
+          )
 
-        HomeTab.SEARCH -> SearchTabContent(
-          query = state.searchQuery,
-          results = state.searchResults,
-          isDark = isDark,
-          onQueryChange = { homeViewModel.onAction(HomeAction.SearchQueryChange(it)) },
-          onPlaySong = { song -> playerViewModel.onPlaySong(song, state.searchResults) }
-        )
+          HomeTab.SEARCH -> SearchTabContent(
+            query = state.searchQuery,
+            results = state.searchResults,
+            isDark = isDark,
+            onQueryChange = { homeViewModel.onAction(HomeAction.SearchQueryChange(it)) },
+            onPlaySong = { song -> playerViewModel.onPlaySong(song, state.searchResults) }
+          )
 
-        HomeTab.FAVORITES -> FavoritesTabContent(isDark = isDark)
+          HomeTab.FAVORITES -> FavoritesTabContent(
+            isDark = isDark,
+            onBrowse = { homeViewModel.onAction(HomeAction.SelectTab(HomeTab.PLAYLISTS)) }
+          )
+        }
       }
     }
   }
@@ -144,33 +186,73 @@ private fun HomeTabRow(
     verticalAlignment = Alignment.CenterVertically
   ) {
     HomeTab.entries.forEach { tab ->
-      val active = tab == selected
-      val shape = RoundedCornerShape(17.dp)
-      Box(
-        modifier = Modifier
-          .height(34.dp)
-          .clip(shape)
-          .background(if (active) EchoBlue else Color.Transparent)
-          .border(
-            width = 1.dp,
-            color = if (active) Color.Transparent else if (isDark) EchoBorderDark else EchoBorder,
-            shape = shape
-          )
-          .clickable { onSelect(tab) }
-          .padding(horizontal = 14.dp),
-        contentAlignment = Alignment.Center
-      ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-          Text(text = tab.emoji, fontSize = 12.sp)
-          Spacer(Modifier.width(4.dp))
-          Text(
-            text = tab.label,
-            color = if (active) Color.White else if (isDark) DarkTextPrimary else EchoTextPrimary,
-            fontSize = 13.sp,
-            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal
-          )
-        }
-      }
+      TabChip(
+        tab = tab,
+        active = tab == selected,
+        isDark = isDark,
+        onClick = { onSelect(tab) }
+      )
+    }
+  }
+}
+
+/** 单个胶囊 Tab：底色、描边、文字色都做过渡，切换时不是生硬反色 */
+@Composable
+private fun TabChip(
+  tab: HomeTab,
+  active: Boolean,
+  isDark: Boolean,
+  onClick: () -> Unit
+) {
+  val shape = RoundedCornerShape(17.dp)
+  val interactionSource = remember { MutableInteractionSource() }
+
+  val background by animateColorAsState(
+    targetValue = if (active) EchoBlue else Color.Transparent,
+    animationSpec = tween(200),
+    label = "tabBackground"
+  )
+  val borderColor by animateColorAsState(
+    targetValue = if (active) Color.Transparent else if (isDark) EchoBorderDark else EchoBorder,
+    animationSpec = tween(200),
+    label = "tabBorder"
+  )
+  val contentColor by animateColorAsState(
+    targetValue = if (active) {
+      Color.White
+    } else if (isDark) {
+      DarkTextPrimary
+    } else {
+      EchoTextPrimary
+    },
+    animationSpec = tween(200),
+    label = "tabContent"
+  )
+
+  Box(
+    modifier = Modifier
+      .height(34.dp)
+      .clip(shape)
+      .background(background)
+      .border(width = 1.dp, color = borderColor, shape = shape)
+      .pressScale(interactionSource, pressedScale = 0.94f)
+      .clickable(
+        interactionSource = interactionSource,
+        indication = LocalIndication.current,
+        onClick = onClick
+      )
+      .padding(horizontal = 14.dp),
+    contentAlignment = Alignment.Center
+  ) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+      Text(text = tab.emoji, fontSize = 12.sp)
+      Spacer(Modifier.width(4.dp))
+      Text(
+        text = tab.label,
+        color = contentColor,
+        fontSize = 13.sp,
+        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal
+      )
     }
   }
 }
@@ -239,6 +321,7 @@ private fun LocalMusicEntryCard(
   modifier: Modifier = Modifier
 ) {
   val shape = RoundedCornerShape(18.dp)
+  val interactionSource = remember { MutableInteractionSource() }
   Row(
     modifier = modifier
       .fillMaxWidth()
@@ -246,7 +329,12 @@ private fun LocalMusicEntryCard(
       .background(
         Brush.horizontalGradient(listOf(EchoBlue, EchoBlueLight))
       )
-      .clickable(onClick = onClick)
+      .clickable(
+        interactionSource = interactionSource,
+        indication = LocalIndication.current,
+        onClick = onClick
+      )
+      .pressScale(interactionSource)
       .padding(horizontal = 16.dp, vertical = 14.dp),
     verticalAlignment = Alignment.CenterVertically
   ) {

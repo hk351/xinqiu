@@ -217,6 +217,29 @@ fun QueueListIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
   }
 }
 
+/** 搜索：圆环 + 斜柄 */
+@Composable
+fun SearchIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
+  Canvas(modifier = modifier) {
+    val w = size.width
+    val h = size.height
+    val stroke = w * 0.10f
+    drawCircle(
+      color = color,
+      radius = w * 0.27f,
+      center = Offset(w * 0.43f, h * 0.43f),
+      style = Stroke(width = stroke)
+    )
+    drawLine(
+      color = color,
+      start = Offset(w * 0.63f, h * 0.63f),
+      end = Offset(w * 0.83f, h * 0.83f),
+      strokeWidth = stroke,
+      cap = StrokeCap.Round
+    )
+  }
+}
+
 /** 收藏：实心/描边心形 */
 @Composable
 fun HeartIcon(
