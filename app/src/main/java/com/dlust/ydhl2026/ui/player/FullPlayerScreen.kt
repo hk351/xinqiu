@@ -17,6 +17,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -34,17 +35,15 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -83,7 +82,10 @@ import com.dlust.ydhl2026.ui.components.RepeatOneIcon
 import com.dlust.ydhl2026.ui.components.ShuffleIcon
 import com.dlust.ydhl2026.ui.components.SkipNextIcon
 import com.dlust.ydhl2026.ui.components.SkipPreviousIcon
+import com.dlust.ydhl2026.ui.components.pressScale
 import com.dlust.ydhl2026.ui.formatDuration
+import com.dlust.ydhl2026.ui.player.lyrics.LyricStage
+import com.dlust.ydhl2026.ui.player.lyrics.LyricStyle
 import com.dlust.ydhl2026.ui.theme.EchoBackgroundDark
 
 /**
@@ -117,6 +119,8 @@ fun FullPlayerScreen(
   var showLyrics by remember { mutableStateOf(false) }
   var showQueue by remember { mutableStateOf(false) }
   var liked by remember(song.id) { mutableStateOf(false) }
+  // 歌词样式跟着页面记住，收起面板再打开还是上一次的选择
+  var lyricStyle by rememberSaveable { mutableStateOf(LyricStyle.CLASSIC) }
 
   // 面板展开时，返回键先收起面板而不是直接退出播放页
   BackHandler(enabled = showLyrics || showQueue) {
@@ -232,7 +236,10 @@ fun FullPlayerScreen(
       LyricsPanel(
         lyrics = song.lyrics,
         positionMs = state.positionMs,
+        isPlaying = state.isPlaying,
         palette = palette,
+        style = lyricStyle,
+        onStyleChange = { lyricStyle = it },
         onClose = { showLyrics = false },
         modifier = Modifier
           .fillMaxSize()
@@ -646,22 +653,18 @@ private fun LyricSnippet(
   }
 }
 
-/** 全屏歌词面板：整屏滚动，当前行自动居中，可下滑或点关闭箭头收起 */
+/** 全屏歌词面板：整屏交给歌词样式绘制，可滑动收起，右上角切换样式 */
 @Composable
 private fun LyricsPanel(
   lyrics: List<LyricLine>?,
   positionMs: Long,
+  isPlaying: Boolean,
   palette: PlayerPalette,
+  style: LyricStyle,
+  onStyleChange: (LyricStyle) -> Unit,
   onClose: () -> Unit,
   modifier: Modifier = Modifier
 ) {
-  val activeIndex = remember(lyrics, positionMs) {
-    lyrics?.indexOfLast { it.timeMs <= positionMs } ?: -1
-  }
-  val scrollState = rememberScrollState()
-  val density = LocalDensity.current
-  val stepPx = with(density) { 44.dp.toPx() }
-
   Box(
     modifier = modifier
       .background(Brush.verticalGradient(listOf(palette.bgTop, palette.bgBottom)))
@@ -677,54 +680,37 @@ private fun LyricsPanel(
     }
 
     Column(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
-      LyricsPanelHeader(palette = palette, onClose = onClose)
+      LyricsPanelHeader(
+        palette = palette,
+        style = style,
+        onStyleChange = onStyleChange,
+        onClose = onClose
+      )
 
       if (lyrics.isNullOrEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
           Text(text = "暂无歌词", color = palette.textSecondary, fontSize = 14.sp)
         }
       } else {
-        BoxWithConstraints(modifier = Modifier.fillMaxWidth().weight(1f)) {
-          val halfViewport = maxHeight / 2
-          // 当前行滚动到视口中央：行高 44dp，中心偏移 22dp
-          LaunchedEffect(activeIndex, scrollState.maxValue) {
-            val target = (stepPx * activeIndex.coerceAtLeast(0) + stepPx / 2).toInt()
-            scrollState.animateScrollTo(target.coerceIn(0, scrollState.maxValue))
-          }
-          Column(
-            modifier = Modifier
-              .fillMaxSize()
-              .verticalScroll(scrollState)
-              .padding(horizontal = 26.dp)
-          ) {
-            Spacer(Modifier.height(halfViewport))
-            lyrics.forEachIndexed { index, line ->
-              Box(
-                modifier = Modifier.fillMaxWidth().height(44.dp),
-                contentAlignment = Alignment.Center
-              ) {
-                val isActive = index == activeIndex
-                Text(
-                  text = line.text,
-                  color = if (isActive) palette.text else palette.textSecondary.copy(alpha = 0.45f),
-                  fontSize = if (isActive) 18.sp else 14.sp,
-                  fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
-                  textAlign = TextAlign.Center
-                )
-              }
-            }
-            Spacer(Modifier.height(halfViewport))
-          }
-        }
+        LyricStage(
+          lines = lyrics,
+          positionMs = positionMs,
+          isPlaying = isPlaying,
+          palette = palette,
+          style = style,
+          modifier = Modifier.fillMaxWidth().weight(1f)
+        )
       }
     }
   }
 }
 
-/** 歌词面板顶部：把手 + 关闭箭头 + 标题，向下滑动可收起 */
+/** 歌词面板顶部：把手 + 关闭箭头 + 标题 + 样式切换，向下滑动可收起 */
 @Composable
 private fun LyricsPanelHeader(
   palette: PlayerPalette,
+  style: LyricStyle,
+  onStyleChange: (LyricStyle) -> Unit,
   onClose: () -> Unit
 ) {
   Column(modifier = Modifier.fillMaxWidth()) {
@@ -752,12 +738,16 @@ private fun LyricsPanelHeader(
           .background(palette.text.copy(alpha = 0.22f))
       )
     }
-    Row(
+    Box(
       modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
-      verticalAlignment = Alignment.CenterVertically
+      contentAlignment = Alignment.Center
     ) {
       Box(
-        modifier = Modifier.size(40.dp).clip(CircleShape).clickable(onClick = onClose),
+        modifier = Modifier
+          .align(Alignment.CenterStart)
+          .size(40.dp)
+          .clip(CircleShape)
+          .clickable(onClick = onClose),
         contentAlignment = Alignment.Center
       ) {
         ChevronDownIcon(
@@ -765,16 +755,48 @@ private fun LyricsPanelHeader(
           color = palette.text.copy(alpha = 0.85f)
         )
       }
-      Spacer(Modifier.weight(1f))
       Text(
         text = "歌词",
         color = palette.textSecondary,
         fontSize = 12.sp,
         letterSpacing = 3.sp
       )
-      Spacer(Modifier.weight(1f))
-      Spacer(Modifier.size(40.dp))
+      LyricStyleChip(
+        style = style,
+        palette = palette,
+        onNext = {
+          val styles = LyricStyle.entries
+          onStyleChange(styles[(style.ordinal + 1) % styles.size])
+        },
+        modifier = Modifier.align(Alignment.CenterEnd)
+      )
     }
+  }
+}
+
+/** 样式切换胶囊：点一下切到下一种歌词动画 */
+@Composable
+private fun LyricStyleChip(
+  style: LyricStyle,
+  palette: PlayerPalette,
+  onNext: () -> Unit,
+  modifier: Modifier = Modifier
+) {
+  val interactionSource = remember { MutableInteractionSource() }
+  Row(
+    modifier = modifier
+      .pressScale(interactionSource)
+      .clip(RoundedCornerShape(50))
+      .border(1.dp, palette.text.copy(alpha = 0.18f), RoundedCornerShape(50))
+      .clickable(interactionSource = interactionSource, indication = null, onClick = onNext)
+      .padding(horizontal = 12.dp, vertical = 6.dp),
+    verticalAlignment = Alignment.CenterVertically
+  ) {
+    Text(
+      text = style.label,
+      color = palette.text.copy(alpha = 0.8f),
+      fontSize = 11.sp
+    )
   }
 }
 
