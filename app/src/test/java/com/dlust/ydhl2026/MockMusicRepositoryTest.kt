@@ -39,6 +39,9 @@ class MockMusicRepositoryTest {
   fun `稻香带有示例歌词`() = runBlocking {
     val rice = repository.recentSongs().first().first { it.title == "稻香" }
     assertTrue(rice.lyrics.isNotEmpty())
+    // Mock 歌词也走 LRC 解析，首行带增强 LRC 的逐字时间
+    assertTrue(rice.lyrics.first().words.isNotEmpty())
+    assertEquals("对这个世界如果你有太多的抱怨", rice.lyrics.first().text)
   }
 
   @Test
