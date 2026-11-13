@@ -2,6 +2,7 @@ package com.dlust.ydhl2026.ui.components
 
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -25,14 +26,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.dlust.ydhl2026.ui.theme.EchoBlue
+import com.dlust.ydhl2026.ui.theme.EchoAccent
 import com.dlust.ydhl2026.ui.theme.EchoTextPrimary
 import com.dlust.ydhl2026.ui.theme.EchoTextPrimaryDark
 import com.dlust.ydhl2026.ui.theme.EchoTextSecondary
 
 /**
- * 统一空态：圆形图标底 + 标题 + 说明 + 可选主按钮。
+ * 统一空态：细描边圆底 + 标题 + 说明 + 可选文字按钮。
  * 收藏、搜索无结果等空白页共用，避免每个页面各写一套排版。
+ *
+ * 视觉上刻意做轻：不铺大色块，避免空态比内容还抢眼。
  */
 @Composable
 fun EmptyState(
@@ -53,18 +56,22 @@ fun EmptyState(
   ) {
     Box(
       modifier = Modifier
-        .size(76.dp)
+        .size(64.dp)
         .clip(CircleShape)
-        .background(EchoBlue.copy(alpha = if (isDark) 0.20f else 0.07f)),
+        .border(
+          width = 1.dp,
+          color = if (isDark) Color.White.copy(alpha = 0.14f) else Color.Black.copy(alpha = 0.10f),
+          shape = CircleShape
+        ),
       contentAlignment = Alignment.Center
     ) {
       icon()
     }
-    Spacer(Modifier.height(18.dp))
+    Spacer(Modifier.height(16.dp))
     Text(
       text = title,
       color = if (isDark) EchoTextPrimaryDark else EchoTextPrimary,
-      fontSize = 15.sp,
+      fontSize = 14.sp,
       fontWeight = FontWeight.SemiBold
     )
     Spacer(Modifier.height(9.dp))
@@ -76,26 +83,27 @@ fun EmptyState(
       textAlign = TextAlign.Center
     )
     if (actionLabel != null && onAction != null) {
-      Spacer(Modifier.height(24.dp))
+      Spacer(Modifier.height(20.dp))
       val interactionSource = remember { MutableInteractionSource() }
       Box(
         modifier = Modifier
-          .height(40.dp)
-          .clip(RoundedCornerShape(20.dp))
-          .background(EchoBlue)
+          .height(34.dp)
+          .clip(RoundedCornerShape(17.dp))
+          .background(EchoAccent.copy(alpha = if (isDark) 0.12f else 0.08f))
+          .border(1.dp, EchoAccent.copy(alpha = 0.45f), RoundedCornerShape(17.dp))
           .pressScale(interactionSource, pressedScale = 0.95f)
           .clickable(
             interactionSource = interactionSource,
             indication = LocalIndication.current,
             onClick = onAction
           )
-          .padding(horizontal = 24.dp),
+          .padding(horizontal = 20.dp),
         contentAlignment = Alignment.Center
       ) {
         Text(
           text = actionLabel,
-          color = Color.White,
-          fontSize = 13.sp,
+          color = EchoAccent,
+          fontSize = 12.5.sp,
           fontWeight = FontWeight.SemiBold
         )
       }

@@ -13,7 +13,7 @@ import androidx.navigation.navArgument
 import com.dlust.ydhl2026.ui.PlayerViewModelFactory
 import com.dlust.ydhl2026.ui.home.HomeScreen
 import com.dlust.ydhl2026.ui.local.LocalMusicScreen
-import com.dlust.ydhl2026.ui.player.FullPlayerScreen
+import com.dlust.ydhl2026.ui.player.NowPlayingScreen
 import com.dlust.ydhl2026.ui.player.PlayerViewModel
 import com.dlust.ydhl2026.ui.playbackEngine
 import com.dlust.ydhl2026.ui.playlist.PlaylistScreen
@@ -53,7 +53,6 @@ class MainActivity : ComponentActivity() {
           composable(route = "home") {
             HomeScreen(
               playerViewModel = playerViewModel,
-              onOpenPlayer = { navController.navigate(route = "player") },
               onPlaylistClick = { playlist ->
                 navController.navigate(route = "playlist/${playlist.id}")
               },
@@ -80,7 +79,7 @@ class MainActivity : ComponentActivity() {
             )
           }
           composable(route = "player") {
-            FullPlayerScreen(
+            NowPlayingScreen(
               playerViewModel = playerViewModel,
               onCollapse = { navController.popBackStack() }
             )

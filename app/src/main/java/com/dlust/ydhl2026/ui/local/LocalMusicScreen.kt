@@ -142,7 +142,8 @@ fun LocalMusicScreen(
             0f
           },
           onTogglePlay = playerViewModel::onPlayPause,
-          onClick = onOpenPlayer
+          onClick = onOpenPlayer,
+          isDark = isDark
         )
       }
     }

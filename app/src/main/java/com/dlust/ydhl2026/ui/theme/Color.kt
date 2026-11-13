@@ -23,3 +23,10 @@ val EchoTextSecondary = Color(0xFF8A9099)
 val EchoTextTertiary = Color(0xFF6B7280)
 val EchoBorder = Color(0xFFE3E6EA)
 val EchoBorderDark = Color(0xFF2A2F36)
+
+/** Folia 风格：海报墙、播放面板与歌词舞台共用的一组颜色 */
+val EchoInk = Color(0xFF08090C)
+val EchoInkSurface = Color(0xFF14161D)
+val EchoAccent = Color(0xFF6C8CFF)
+/** 歌词舞台里「正在唱」的字色，暖橙与品牌蓝形成冷暖对比 */
+val EchoStageWarm = Color(0xFFFFB08A)

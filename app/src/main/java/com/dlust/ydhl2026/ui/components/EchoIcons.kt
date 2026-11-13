@@ -429,3 +429,100 @@ fun ShuffleIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
     )
   }
 }
+
+/** 分享：方框里向上射出的箭头 */
+@Composable
+fun ShareIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
+  Canvas(modifier = modifier) {
+    val w = size.width
+    val h = size.height
+    val stroke = w * 0.085f
+    // 下方托盘
+    val tray = Path().apply {
+      moveTo(w * 0.24f, h * 0.44f)
+      lineTo(w * 0.24f, h * 0.84f)
+      lineTo(w * 0.76f, h * 0.84f)
+      lineTo(w * 0.76f, h * 0.44f)
+    }
+    drawPath(path = tray, color = color, style = Stroke(width = stroke, cap = StrokeCap.Round))
+    // 向上的箭头
+    drawLine(
+      color = color,
+      start = Offset(w * 0.50f, h * 0.62f),
+      end = Offset(w * 0.50f, h * 0.16f),
+      strokeWidth = stroke,
+      cap = StrokeCap.Round
+    )
+    val head = Path().apply {
+      moveTo(w * 0.34f, h * 0.31f)
+      lineTo(w * 0.50f, h * 0.15f)
+      lineTo(w * 0.66f, h * 0.31f)
+    }
+    drawPath(path = head, color = color, style = Stroke(width = stroke, cap = StrokeCap.Round))
+  }
+}
+
+/** 小星星：散字舞台顶部「匹配歌词」胶囊前的装饰 */
+@Composable
+fun SparkleIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
+  Canvas(modifier = modifier) {
+    val w = size.width
+    val h = size.height
+    val big = Path().apply {
+      moveTo(w * 0.42f, h * 0.08f)
+      lineTo(w * 0.53f, h * 0.35f)
+      lineTo(w * 0.80f, h * 0.46f)
+      lineTo(w * 0.53f, h * 0.57f)
+      lineTo(w * 0.42f, h * 0.84f)
+      lineTo(w * 0.31f, h * 0.57f)
+      lineTo(w * 0.04f, h * 0.46f)
+      lineTo(w * 0.31f, h * 0.35f)
+      close()
+    }
+    drawPath(path = big, color = color)
+    val small = Path().apply {
+      moveTo(w * 0.78f, h * 0.62f)
+      lineTo(w * 0.84f, h * 0.75f)
+      lineTo(w * 0.97f, h * 0.81f)
+      lineTo(w * 0.84f, h * 0.87f)
+      lineTo(w * 0.78f, h * 1.0f)
+      lineTo(w * 0.72f, h * 0.87f)
+      lineTo(w * 0.59f, h * 0.81f)
+      lineTo(w * 0.72f, h * 0.75f)
+      close()
+    }
+    drawPath(path = small, color = color.copy(alpha = 0.75f))
+  }
+}
+
+/** 音符：本地音乐空态用，和海报墙的极简线条保持同一套笔触 */
+@Composable
+fun MusicNoteIcon(modifier: Modifier = Modifier, color: Color = Color.White) {
+  Canvas(modifier = modifier) {
+    val w = size.width
+    val h = size.height
+    val stroke = w * 0.085f
+    // 符杆
+    drawLine(
+      color = color,
+      start = Offset(w * 0.61f, h * 0.18f),
+      end = Offset(w * 0.61f, h * 0.70f),
+      strokeWidth = stroke,
+      cap = StrokeCap.Round
+    )
+    // 符尾
+    drawLine(
+      color = color,
+      start = Offset(w * 0.61f, h * 0.18f),
+      end = Offset(w * 0.85f, h * 0.26f),
+      strokeWidth = stroke,
+      cap = StrokeCap.Round
+    )
+    // 符头
+    drawCircle(
+      color = color,
+      radius = w * 0.15f,
+      center = Offset(w * 0.46f, h * 0.70f)
+    )
+  }
+}

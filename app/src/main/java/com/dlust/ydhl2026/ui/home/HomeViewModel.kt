@@ -16,14 +16,16 @@ import kotlinx.coroutines.launch
 
 /** 首页 UI 状态 */
 data class HomeUiState(
-  val selectedTab: HomeTab = HomeTab.PLAYLISTS,
+  val selectedTab: HomeTab = HomeTab.RECOMMEND,
   val playlists: List<Playlist> = emptyList(),
   val recentSongs: List<Song> = emptyList(),
   val searchQuery: String = "",
   val searchResults: List<Song> = emptyList(),
-  val localSongCount: Int = 0,
+  val localSongs: List<Song> = emptyList(),
   val isLoading: Boolean = true
-)
+) {
+  val localSongCount: Int get() = localSongs.size
+}
 
 /** 界面能发出的操作（UDF：事件单向流入 ViewModel） */
 sealed interface HomeAction {
@@ -52,13 +54,13 @@ class HomeViewModel(
         repository.recentSongs(),
         localMusicStore.songs
       ) { playlists, recent, localSongs ->
-        Triple(playlists, recent, localSongs.size)
-      }.collect { (playlists, recent, localCount) ->
+        Triple(playlists, recent, localSongs)
+      }.collect { (playlists, recent, localSongs) ->
         _uiState.update {
           it.copy(
             playlists = playlists,
             recentSongs = recent,
-            localSongCount = localCount,
+            localSongs = localSongs,
             isLoading = false
           )
         }

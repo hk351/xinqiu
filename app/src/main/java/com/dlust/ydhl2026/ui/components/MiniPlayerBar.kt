@@ -11,14 +11,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,22 +24,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dlust.ydhl2026.data.model.Song
-import com.dlust.ydhl2026.ui.theme.EchoSurfaceDark
+import com.dlust.ydhl2026.ui.theme.EchoAccent
+import com.dlust.ydhl2026.ui.theme.EchoBackground
+import com.dlust.ydhl2026.ui.theme.EchoBackgroundDark
+import com.dlust.ydhl2026.ui.theme.EchoTextPrimary
+import com.dlust.ydhl2026.ui.theme.EchoTextPrimaryDark
+import com.dlust.ydhl2026.ui.theme.EchoTextSecondary
 
 /**
  * 全局迷你播放条。
- * 必须挂在 Scaffold 的 bottomBar 槽位，不能在页面内部，否则切换 Tab 会丢失。
+ * 必须挂在 Scaffold 的 bottomBar 槽位或页面底部，不能在页面内部，否则切换 Tab 会丢失。
  *
- * @param progress 当前播放进度 0f..1f，用来画底部细进度线
+ * 视觉上只保留一条进度细线 + 一行文字，不再用大色块，
+ * 这样海报墙的封面可以一直铺到屏幕底部，不被打断。
+ *
+ * @param progress 当前播放进度 0f..1f，用来画顶部细进度线
  */
 @Composable
 fun MiniPlayerBar(
@@ -50,11 +54,13 @@ fun MiniPlayerBar(
   progress: Float,
   onTogglePlay: () -> Unit,
   onClick: () -> Unit,
-  modifier: Modifier = Modifier
+  modifier: Modifier = Modifier,
+  isDark: Boolean = true
 ) {
-  val shape = RoundedCornerShape(12.dp)
   val interactionSource = remember { MutableInteractionSource() }
   val indication = LocalIndication.current
+  val primary = if (isDark) EchoTextPrimaryDark else EchoTextPrimary
+  val background = if (isDark) EchoBackgroundDark else EchoBackground
 
   // 引擎每 250ms 推一次位置，用等速补间把跳变抹平成连续推进
   val animatedProgress by animateFloatAsState(
@@ -63,65 +69,73 @@ fun MiniPlayerBar(
     label = "miniProgress"
   )
 
-  Box(
+  Column(
     modifier = modifier
       .fillMaxWidth()
-      .padding(horizontal = 12.dp, vertical = 8.dp)
-      .height(56.dp)
-      .clip(shape)
-      .background(color = EchoSurfaceDark)
+      // 用页面底色做渐变，让迷你条从海报墙里「浮」出来，而不是压一块色板
+      .background(
+        Brush.verticalGradient(
+          colors = listOf(
+            Color.Transparent,
+            background.copy(alpha = 0.9f),
+            background,
+            background
+          ),
+          startY = 0f
+        )
+      )
       .clickable(
         interactionSource = interactionSource,
         indication = indication,
         onClick = onClick
       )
-      .pressScale(interactionSource, pressedScale = 0.985f)
-      // 进度线直接画在卡片最上层：先铺一条 12% 白的轨道，再按当前进度覆盖品牌蓝
-      .drawWithContent {
-        drawContent()
-        // 2.5dp 比 2dp 更能压住黑色背景；颜色比品牌浅蓝再亮一档，否则在深色卡上发灰
-        val lineHeight = 2.5.dp.toPx()
-        val top = size.height - lineHeight
-        drawRect(
-          color = Color.White.copy(alpha = 0.14f),
-          topLeft = Offset(0f, top),
-          size = Size(size.width, lineHeight)
-        )
-        drawRect(
-          color = Color(0xFF6E8CE8),
-          topLeft = Offset(0f, top),
-          size = Size(size.width * animatedProgress, lineHeight)
-        )
-      }
+      .pressScale(interactionSource, pressedScale = 0.99f)
   ) {
+    // 顶部留一段渐变过渡区，让后面滚动的封面文字自然淡出
+    Spacer(Modifier.height(12.dp))
+    // 顶部细节进度线：底色区分深/浅色，进度用品牌蓝
+    Box(
+      modifier = Modifier
+        .fillMaxWidth()
+        .height(1.5.dp)
+        .background(if (isDark) Color.White.copy(alpha = 0.14f) else Color.Black.copy(alpha = 0.10f))
+    ) {
+      Box(
+        modifier = Modifier
+          .fillMaxWidth(animatedProgress)
+          .height(1.5.dp)
+          .background(EchoAccent)
+      )
+    }
+
     Row(
       modifier = Modifier
-        .fillMaxSize()
-        .padding(start = 10.dp, end = 10.dp, bottom = 4.dp),
+        .fillMaxWidth()
+        .padding(start = 14.dp, end = 10.dp, top = 8.dp, bottom = 8.dp)
+        .height(44.dp),
       verticalAlignment = Alignment.CenterVertically
     ) {
       CoverArt(
         seed = song.id,
-        label = song.title.take(1),
-        modifier = Modifier.size(40.dp),
-        cornerRadius = 8.dp,
-        labelSize = 16.sp
+        label = "",
+        modifier = Modifier.size(34.dp),
+        cornerRadius = 3.dp
       )
       Spacer(Modifier.width(10.dp))
       Column(modifier = Modifier.weight(1f)) {
         Text(
           text = song.title,
-          color = Color.White,
-          fontSize = 14.sp,
-          fontWeight = FontWeight.Medium,
+          color = primary,
+          fontSize = 12.5.sp,
+          fontWeight = FontWeight.SemiBold,
           maxLines = 1,
           overflow = TextOverflow.Ellipsis
         )
         Spacer(Modifier.height(2.dp))
         Text(
           text = song.artist,
-          color = Color(0xFF9AA3AD),
-          fontSize = 11.sp,
+          color = EchoTextSecondary,
+          fontSize = 10.5.sp,
           maxLines = 1,
           overflow = TextOverflow.Ellipsis
         )
@@ -129,19 +143,19 @@ fun MiniPlayerBar(
       // 播放 / 暂停，独立点击区域，避免触发展开
       Box(
         modifier = Modifier
-          .size(36.dp)
+          .size(34.dp)
           .clip(CircleShape)
           .clickable(onClick = onTogglePlay),
         contentAlignment = Alignment.Center
       ) {
         if (isPlaying) {
-          PauseIcon(modifier = Modifier.size(18.dp))
+          PauseIcon(modifier = Modifier.size(16.dp), color = primary)
         } else {
-          PlayIcon(modifier = Modifier.size(18.dp))
+          PlayIcon(modifier = Modifier.size(16.dp), color = primary)
         }
       }
       Spacer(Modifier.width(4.dp))
-      ChevronUpIcon(modifier = Modifier.size(14.dp), color = Color(0xFF9AA3AD))
+      ChevronUpIcon(modifier = Modifier.size(13.dp), color = EchoTextSecondary)
     }
   }
 }

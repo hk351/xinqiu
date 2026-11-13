@@ -98,7 +98,7 @@ import com.dlust.ydhl2026.ui.components.TrashIcon
 import com.dlust.ydhl2026.ui.formatDuration
 import com.dlust.ydhl2026.ui.musicRepository
 import com.dlust.ydhl2026.ui.player.PlayerViewModel
-import com.dlust.ydhl2026.ui.player.playerPaletteFor
+import com.dlust.ydhl2026.ui.theme.EchoAccent
 import com.dlust.ydhl2026.ui.theme.EchoBackground
 import com.dlust.ydhl2026.ui.theme.EchoBackgroundDark
 import com.dlust.ydhl2026.ui.theme.EchoTextPrimary
@@ -147,7 +147,7 @@ fun PlaylistScreen(
   val background = if (isDark) EchoBackgroundDark else EchoBackground
   val textPrimary = if (isDark) DarkTextPrimary else EchoTextPrimary
   val textSecondary = if (isDark) DarkTextSecondary else EchoTextSecondary
-  val accent = remember(playlistId) { playerPaletteFor("playlist-$playlistId").primary }
+  val accent = EchoAccent
 
   val listState = rememberLazyListState()
   val density = LocalDensity.current
@@ -181,7 +181,8 @@ fun PlaylistScreen(
             0f
           },
           onTogglePlay = playerViewModel::onPlayPause,
-          onClick = onOpenPlayer
+          onClick = onOpenPlayer,
+          isDark = isDark
         )
       }
     }
