@@ -7,6 +7,8 @@ import com.dlust.ydhl2026.data.local.LocalMusicStore
 import com.dlust.ydhl2026.data.local.LyricsFolderStore
 import com.dlust.ydhl2026.data.local.MediaStoreLocalMusicSource
 import com.dlust.ydhl2026.data.local.SafLrcLyricsSource
+import com.dlust.ydhl2026.data.lyrics.NeteaseLyricsSource
+import com.dlust.ydhl2026.data.lyrics.OnlineLyricsSource
 import com.dlust.ydhl2026.data.playback.Media3PlaybackEngine
 import com.dlust.ydhl2026.data.playback.PlaybackEngine
 import com.dlust.ydhl2026.data.repository.MockMusicRepository
@@ -31,6 +33,9 @@ class EchoApp : Application() {
   lateinit var localLyricsSource: LocalLyricsSource
     private set
 
+  lateinit var onlineLyricsSource: OnlineLyricsSource
+    private set
+
   /** 用户选过的歌词文件夹（SAF 树 URI），本地音乐页读写 */
   val lyricsFolderStore by lazy { LyricsFolderStore(this) }
 
@@ -44,6 +49,7 @@ class EchoApp : Application() {
     playbackEngine = Media3PlaybackEngine(this)
     localMusicSource = MediaStoreLocalMusicSource(this)
     localLyricsSource = SafLrcLyricsSource(this, lyricsFolderStore)
+    onlineLyricsSource = NeteaseLyricsSource()
   }
 
   override fun onTerminate() {

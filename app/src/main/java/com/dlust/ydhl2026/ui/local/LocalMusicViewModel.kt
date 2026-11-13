@@ -6,13 +6,19 @@ import com.dlust.ydhl2026.data.local.LocalMusicSource
 import com.dlust.ydhl2026.data.local.LocalMusicStore
 import com.dlust.ydhl2026.data.local.LocalLyricsSource
 import com.dlust.ydhl2026.data.local.attachLyrics
+import com.dlust.ydhl2026.data.lyrics.OnlineLyricsSource
 import com.dlust.ydhl2026.data.model.LyricLine
 import com.dlust.ydhl2026.data.model.Song
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 /** 页面阶段：未授权 → 扫描中 → 就绪 / 空态 */
 enum class LocalMusicPhase { PERMISSION, SCANNING, READY, EMPTY }
@@ -41,7 +47,8 @@ data class LocalMusicUiState(
 class LocalMusicViewModel(
   private val source: LocalMusicSource,
   private val store: LocalMusicStore,
-  private val lyricsSource: LocalLyricsSource
+  private val lyricsSource: LocalLyricsSource,
+  private val onlineLyricsSource: OnlineLyricsSource
 ) : ViewModel() {
 
   private val _uiState = MutableStateFlow(LocalMusicUiState())
@@ -93,6 +100,41 @@ class LocalMusicViewModel(
           )
         }
       }
+      if (songs.isNotEmpty()) enrichOnlineLyrics()
+    }
+  }
+
+  /**
+   * 列表先出来，再补在线歌词：只处理还没有歌词的歌，限并发、限量，
+   * 拿到一批后一次性写回状态和缓存，避免逐首刷新列表造成抖动。
+   */
+  private fun enrichOnlineLyrics() {
+    viewModelScope.launch {
+      val pending = _uiState.value.songs
+        .filter { it.lyrics.isEmpty() }
+        .take(MAX_ONLINE_LOOKUPS)
+      if (pending.isEmpty()) return@launch
+
+      val semaphore = Semaphore(ONLINE_CONCURRENCY)
+      val found = coroutineScope {
+        pending.map { song ->
+          async {
+            val lines = semaphore.withPermit {
+              runCatching { onlineLyricsSource.find(song) }.getOrDefault(emptyList())
+            }
+            song.id to lines
+          }
+        }.awaitAll()
+      }.filter { it.second.isNotEmpty() }.toMap()
+      if (found.isEmpty()) return@launch
+
+      val merged = _uiState.value.songs.map { song ->
+        found[song.id]?.let { song.copy(lyrics = it) } ?: song
+      }
+      store.replace(merged)
+      _uiState.update {
+        it.copy(songs = merged, visible = filterSort(merged, it.query, it.sort))
+      }
     }
   }
 
@@ -115,6 +157,12 @@ class LocalMusicViewModel(
   }
 
   companion object {
+
+    /** 在线补词的同时请求数，别把免费接口打限流 */
+    private const val ONLINE_CONCURRENCY = 4
+
+    /** 单次扫描最多补多少首，超大曲库留给后续手动触发 */
+    private const val MAX_ONLINE_LOOKUPS = 80
 
     /** 搜索过滤 + 排序的纯函数，单独提出方便单测 */
     fun filterSort(songs: List<Song>, query: String, sort: LocalMusicSort): List<Song> {

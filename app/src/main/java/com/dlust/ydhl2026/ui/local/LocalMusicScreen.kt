@@ -74,6 +74,7 @@ import com.dlust.ydhl2026.ui.formatDuration
 import com.dlust.ydhl2026.ui.localMusicSource
 import com.dlust.ydhl2026.ui.localMusicStore
 import com.dlust.ydhl2026.ui.localLyricsSource
+import com.dlust.ydhl2026.ui.onlineLyricsSource
 import com.dlust.ydhl2026.ui.lyricsFolderStore
 import com.dlust.ydhl2026.ui.LocalMusicViewModelFactory
 import com.dlust.ydhl2026.ui.player.PlayerViewModel
@@ -106,10 +107,11 @@ fun LocalMusicScreen(
   val store = remember { context.localMusicStore() }
   val source = remember { context.localMusicSource() }
   val lyricsSource = remember { context.localLyricsSource() }
+  val onlineLyricsSource = remember { context.onlineLyricsSource() }
   val lyricsFolder = remember { context.lyricsFolderStore() }
   var lyricsBound by remember { mutableStateOf(lyricsFolder.treeUri != null) }
   val viewModel: LocalMusicViewModel =
-    viewModel(factory = LocalMusicViewModelFactory(source, store, lyricsSource))
+    viewModel(factory = LocalMusicViewModelFactory(source, store, lyricsSource, onlineLyricsSource))
 
   // 选歌词文件夹：SAF 授权后持久化读权限，重新扫描时按同名 .lrc 挂歌词
   val lyricsFolderPicker = rememberLauncherForActivityResult(
