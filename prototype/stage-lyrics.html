@@ -268,6 +268,24 @@
   showUI();
   setTimeout(() => { phone.classList.add('ui-hidden'); }, 3600);
 
+  /* ---------------- 返回上一层 / 舞台下滑 ---------------- */
+  const backBtn = document.querySelector('.back');
+  function goBack(){
+    // 从播放面板进入时优先回退，保留面板展开状态
+    if (document.referrer && document.referrer.indexOf('home-lattice') !== -1) history.back();
+    else location.href = 'home-lattice.html';
+  }
+  backBtn.addEventListener('click', (e) => { e.stopPropagation(); goBack(); });
+
+  let touchStartY = null;
+  phone.addEventListener('touchstart', (e) => { touchStartY = e.touches[0].clientY; }, { passive: true });
+  phone.addEventListener('touchend', (e) => {
+    if (touchStartY === null) return;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    touchStartY = null;
+    if (dy > 90) goBack();
+  }, { passive: true });
+
   /* 顶部胶囊 2.6 秒后自动淡出 */
   setTimeout(() => { pill.style.opacity = '0'; }, 2600);
 </script>

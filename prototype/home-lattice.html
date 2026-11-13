@@ -146,7 +146,8 @@
   }
   .panel.open{opacity:1;pointer-events:auto}
   .p-inner{position:absolute;inset:0;transition:opacity 180ms ease}
-  .p-cover{position:absolute;inset:0}
+  .p-cover{position:absolute;inset:0;cursor:pointer}
+  .phone.leaving{opacity:0;transition:opacity 220ms ease}
   .p-cover::after{
     content:"";position:absolute;inset:0;
     background:linear-gradient(180deg,rgba(0,0,0,0) 40%,rgba(0,0,0,.72) 78%,rgba(0,0,0,.9));
@@ -309,10 +310,12 @@
   const pSub = document.getElementById('pSub');
   const pBadge = document.getElementById('pBadge');
   let openTile = null;
+  let openIndex = 0;
 
   // 面板展开：从被点卡片的位置放大到最终面板，制造“原地展开”的连续感
   function openPanel(tile){
     openTile = tile;
+    openIndex = [...document.querySelectorAll('.tile')].indexOf(tile);
     const cover = tile.querySelector('.cover');
     pCover.className = 'p-cover ' + [...cover.classList].filter(c => c !== 'h1' && c !== 'h2' && c !== 'h3' && c !== 'h4').join(' ');
     pTitle.textContent = tile.dataset.title;
@@ -369,6 +372,23 @@
     closePanel();
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanel(); });
+
+  // 点面板封面进入歌词舞台，作为播放页的下一层
+  pCover.addEventListener('click', () => {
+    // 记住当前卡片，返回时恢复面板展开状态
+    sessionStorage.setItem('echoPanelIndex', String(openIndex));
+    document.querySelector('.phone').classList.add('leaving');
+    setTimeout(() => { location.href = 'stage-lyrics.html'; }, 220);
+  });
+
+  // 从舞台返回时，重新打开上次的卡片
+  const savedIndex = sessionStorage.getItem('echoPanelIndex');
+  if (savedIndex !== null) {
+    sessionStorage.removeItem('echoPanelIndex');
+    const tiles = document.querySelectorAll('.tile');
+    const tile = tiles[Number(savedIndex)];
+    if (tile) setTimeout(() => openPanel(tile), 300);
+  }
 
   // Tab 仅做视觉切换，表明选中态
   document.querySelectorAll('.tab').forEach(tab => {
