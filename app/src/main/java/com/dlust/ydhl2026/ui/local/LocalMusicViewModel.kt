@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dlust.ydhl2026.data.local.LocalMusicSource
 import com.dlust.ydhl2026.data.local.LocalMusicStore
+import com.dlust.ydhl2026.data.local.LocalLyricsSource
+import com.dlust.ydhl2026.data.local.attachLyrics
+import com.dlust.ydhl2026.data.model.LyricLine
 import com.dlust.ydhl2026.data.model.Song
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,7 +40,8 @@ data class LocalMusicUiState(
  */
 class LocalMusicViewModel(
   private val source: LocalMusicSource,
-  private val store: LocalMusicStore
+  private val store: LocalMusicStore,
+  private val lyricsSource: LocalLyricsSource
 ) : ViewModel() {
 
   private val _uiState = MutableStateFlow(LocalMusicUiState())
@@ -76,7 +80,7 @@ class LocalMusicViewModel(
         }
         return@launch
       }
-      val songs = result.getOrDefault(emptyList())
+      val songs = attachLyrics(result.getOrDefault(emptyList()), loadLyricsIndex())
       store.replace(songs)
       _uiState.update {
         if (songs.isEmpty()) {
@@ -91,6 +95,10 @@ class LocalMusicViewModel(
       }
     }
   }
+
+  /** 读取 .lrc 索引；没绑定歌词文件夹或读取失败都返回空，不影响歌曲列表本身 */
+  private suspend fun loadLyricsIndex(): Map<String, List<LyricLine>> =
+    runCatching { lyricsSource.loadIndex() }.getOrDefault(emptyMap())
 
   fun onQueryChange(query: String) {
     _uiState.update {

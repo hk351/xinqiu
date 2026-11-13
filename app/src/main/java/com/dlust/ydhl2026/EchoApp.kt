@@ -1,9 +1,12 @@
 package com.dlust.ydhl2026
 
 import android.app.Application
+import com.dlust.ydhl2026.data.local.LocalLyricsSource
 import com.dlust.ydhl2026.data.local.LocalMusicSource
 import com.dlust.ydhl2026.data.local.LocalMusicStore
+import com.dlust.ydhl2026.data.local.LyricsFolderStore
 import com.dlust.ydhl2026.data.local.MediaStoreLocalMusicSource
+import com.dlust.ydhl2026.data.local.SafLrcLyricsSource
 import com.dlust.ydhl2026.data.playback.Media3PlaybackEngine
 import com.dlust.ydhl2026.data.playback.PlaybackEngine
 import com.dlust.ydhl2026.data.repository.MockMusicRepository
@@ -25,6 +28,12 @@ class EchoApp : Application() {
   lateinit var localMusicSource: LocalMusicSource
     private set
 
+  lateinit var localLyricsSource: LocalLyricsSource
+    private set
+
+  /** 用户选过的歌词文件夹（SAF 树 URI），本地音乐页读写 */
+  val lyricsFolderStore by lazy { LyricsFolderStore(this) }
+
   /** 本地音乐扫描结果的内存缓存，首页入口卡与本地音乐页共享 */
   val localMusicStore = LocalMusicStore()
 
@@ -34,6 +43,7 @@ class EchoApp : Application() {
     musicRepository = MockMusicRepository()
     playbackEngine = Media3PlaybackEngine(this)
     localMusicSource = MediaStoreLocalMusicSource(this)
+    localLyricsSource = SafLrcLyricsSource(this, lyricsFolderStore)
   }
 
   override fun onTerminate() {

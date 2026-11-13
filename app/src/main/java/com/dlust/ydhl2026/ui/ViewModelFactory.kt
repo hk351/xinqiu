@@ -4,8 +4,10 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.dlust.ydhl2026.EchoApp
+import com.dlust.ydhl2026.data.local.LocalLyricsSource
 import com.dlust.ydhl2026.data.local.LocalMusicSource
 import com.dlust.ydhl2026.data.local.LocalMusicStore
+import com.dlust.ydhl2026.data.local.LyricsFolderStore
 import com.dlust.ydhl2026.data.playback.PlaybackEngine
 import com.dlust.ydhl2026.data.repository.MusicRepository
 import com.dlust.ydhl2026.ui.home.HomeViewModel
@@ -28,6 +30,12 @@ fun Context.localMusicSource(): LocalMusicSource =
 
 fun Context.localMusicStore(): LocalMusicStore =
   (applicationContext as EchoApp).localMusicStore
+
+fun Context.localLyricsSource(): LocalLyricsSource =
+  (applicationContext as EchoApp).localLyricsSource
+
+fun Context.lyricsFolderStore(): LyricsFolderStore =
+  (applicationContext as EchoApp).lyricsFolderStore
 
 class HomeViewModelFactory(
   private val repository: MusicRepository,
@@ -60,10 +68,11 @@ class PlayerViewModelFactory(
 
 class LocalMusicViewModelFactory(
   private val source: LocalMusicSource,
-  private val store: LocalMusicStore
+  private val store: LocalMusicStore,
+  private val lyricsSource: LocalLyricsSource
 ) : ViewModelProvider.Factory {
 
   @Suppress("UNCHECKED_CAST")
   override fun <T : ViewModel> create(modelClass: Class<T>): T =
-    LocalMusicViewModel(source, store) as T
+    LocalMusicViewModel(source, store, lyricsSource) as T
 }

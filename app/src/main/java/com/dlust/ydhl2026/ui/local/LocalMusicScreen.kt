@@ -73,6 +73,8 @@ import com.dlust.ydhl2026.ui.components.MiniPlayerBar
 import com.dlust.ydhl2026.ui.formatDuration
 import com.dlust.ydhl2026.ui.localMusicSource
 import com.dlust.ydhl2026.ui.localMusicStore
+import com.dlust.ydhl2026.ui.localLyricsSource
+import com.dlust.ydhl2026.ui.lyricsFolderStore
 import com.dlust.ydhl2026.ui.LocalMusicViewModelFactory
 import com.dlust.ydhl2026.ui.player.PlayerViewModel
 import com.dlust.ydhl2026.ui.theme.EchoBackground
@@ -103,8 +105,28 @@ fun LocalMusicScreen(
   val isDark = isSystemInDarkTheme()
   val store = remember { context.localMusicStore() }
   val source = remember { context.localMusicSource() }
+  val lyricsSource = remember { context.localLyricsSource() }
+  val lyricsFolder = remember { context.lyricsFolderStore() }
+  var lyricsBound by remember { mutableStateOf(lyricsFolder.treeUri != null) }
   val viewModel: LocalMusicViewModel =
-    viewModel(factory = LocalMusicViewModelFactory(source, store))
+    viewModel(factory = LocalMusicViewModelFactory(source, store, lyricsSource))
+
+  // 选歌词文件夹：SAF 授权后持久化读权限，重新扫描时按同名 .lrc 挂歌词
+  val lyricsFolderPicker = rememberLauncherForActivityResult(
+    ActivityResultContracts.OpenDocumentTree()
+  ) { uri ->
+    if (uri != null) {
+      runCatching {
+        context.contentResolver.takePersistableUriPermission(
+          uri,
+          Intent.FLAG_GRANT_READ_URI_PERMISSION
+        )
+      }
+      lyricsFolder.save(uri)
+      lyricsBound = true
+      viewModel.startScan()
+    }
+  }
 
   val permission = if (Build.VERSION.SDK_INT >= 33) {
     Manifest.permission.READ_MEDIA_AUDIO
@@ -169,7 +191,9 @@ fun LocalMusicScreen(
       NavBar(
         count = if (state.phase == LocalMusicPhase.READY) state.songs.size else 0,
         isDark = isDark,
-        onBack = onBack
+        lyricsBound = lyricsBound,
+        onBack = onBack,
+        onPickLyricsFolder = { lyricsFolderPicker.launch(null) }
       )
       when (state.phase) {
         LocalMusicPhase.PERMISSION -> PermissionView(
@@ -205,12 +229,14 @@ fun LocalMusicScreen(
   }
 }
 
-/** 顶部导航：返回 + 标题 + 歌曲数 */
+/** 顶部导航：返回 + 标题 + 歌词目录入口 + 歌曲数 */
 @Composable
 private fun NavBar(
   count: Int,
   isDark: Boolean,
+  lyricsBound: Boolean,
   onBack: () -> Unit,
+  onPickLyricsFolder: () -> Unit,
   modifier: Modifier = Modifier
 ) {
   Row(
@@ -239,7 +265,17 @@ private fun NavBar(
       fontWeight = FontWeight.SemiBold
     )
     Spacer(Modifier.weight(1f))
+    Text(
+      text = if (lyricsBound) "歌词目录已绑定" else "绑定歌词目录",
+      color = if (lyricsBound) EchoBlue else EchoTextSecondary,
+      fontSize = 11.5.sp,
+      modifier = Modifier
+        .clip(RoundedCornerShape(14.dp))
+        .clickable(onClick = onPickLyricsFolder)
+        .padding(horizontal = 8.dp, vertical = 5.dp)
+    )
     if (count > 0) {
+      Spacer(Modifier.width(4.dp))
       Text(
         text = "$count 首",
         color = EchoTextSecondary,

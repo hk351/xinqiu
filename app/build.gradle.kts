@@ -50,6 +50,7 @@ dependencies {
   implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.navigation.compose)
   implementation(libs.androidx.media3.exoplayer)
+  implementation(libs.androidx.documentfile)
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
   androidTestImplementation(platform(libs.androidx.compose.bom))
