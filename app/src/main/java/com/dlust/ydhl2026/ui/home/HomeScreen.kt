@@ -487,7 +487,8 @@ private fun TrackTile(
         seed = song.id,
         label = "",
         cornerRadius = 3.dp,
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
+        artUrl = song.albumArtUrl
       )
       PosterScrim()
       NumberBadge(index = index)
@@ -749,7 +750,13 @@ private fun SearchResultRow(
       .padding(vertical = 8.dp, horizontal = 4.dp),
     verticalAlignment = Alignment.CenterVertically
   ) {
-    CoverArt(seed = song.id, label = "", cornerRadius = 3.dp, modifier = Modifier.size(44.dp))
+    CoverArt(
+      seed = song.id,
+      label = "",
+      cornerRadius = 3.dp,
+      modifier = Modifier.size(44.dp),
+      artUrl = song.albumArtUrl
+    )
     Spacer(Modifier.width(12.dp))
     Column(modifier = Modifier.weight(1f)) {
       Text(

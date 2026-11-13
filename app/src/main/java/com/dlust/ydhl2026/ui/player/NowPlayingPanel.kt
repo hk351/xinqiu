@@ -193,7 +193,8 @@ private fun PlayerPanel(
         seed = song.id,
         label = "",
         cornerRadius = 0.dp,
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
+        artUrl = song.albumArtUrl
       )
 
       // 底部压暗，标题与进度线在明亮封面上也能看清

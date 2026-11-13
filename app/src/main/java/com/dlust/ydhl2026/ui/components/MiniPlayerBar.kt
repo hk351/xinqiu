@@ -119,7 +119,8 @@ fun MiniPlayerBar(
         seed = song.id,
         label = "",
         modifier = Modifier.size(34.dp),
-        cornerRadius = 3.dp
+        cornerRadius = 3.dp,
+        artUrl = song.albumArtUrl
       )
       Spacer(Modifier.width(10.dp))
       Column(modifier = Modifier.weight(1f)) {

@@ -60,15 +60,17 @@ class MediaStoreLocalMusicSource(
         // MediaStore 对缺失的艺术家/专辑会填 "<unknown>"，统一换成中文占位
         val artist = cursor.getString(artistCol)?.takeIf { it != UNKNOWN_MARKER } ?: UNKNOWN_ARTIST
         val album = cursor.getString(albumCol)?.takeIf { it != UNKNOWN_MARKER }
+        val contentUri = ContentUris.withAppendedId(collection, mediaId).toString()
         songs += Song(
           id = "local-$mediaId",
           title = title,
           artist = artist,
           album = album,
-          albumArtUrl = null,
+          // 本地曲目没有独立的封面 URI，直接用音频 URI，播放时可从中解出内嵌专辑图
+          albumArtUrl = contentUri,
           durationMs = cursor.getLong(durationCol),
           source = "local",
-          sourceUrl = ContentUris.withAppendedId(collection, mediaId).toString(),
+          sourceUrl = contentUri,
           lyrics = emptyList(),
           lastModifiedAt = cursor.getLong(addedCol) * 1000L,
           mimeType = cursor.getString(mimeCol),

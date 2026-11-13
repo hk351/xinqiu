@@ -693,7 +693,8 @@ private fun LocalSongRow(
       label = song.title.take(1),
       cornerRadius = 12.dp,
       labelSize = 17.sp,
-      modifier = Modifier.size(46.dp)
+      modifier = Modifier.size(46.dp),
+      artUrl = song.albumArtUrl
     )
     Spacer(Modifier.width(12.dp))
     Column(modifier = Modifier.weight(1f)) {

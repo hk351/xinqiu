@@ -655,7 +655,8 @@ private fun PlaylistSongRow(
         label = song.title.take(1),
         cornerRadius = 8.dp,
         labelSize = 16.sp,
-        modifier = Modifier.size(44.dp)
+        modifier = Modifier.size(44.dp),
+        artUrl = song.albumArtUrl
       )
       Spacer(Modifier.width(12.dp))
 
