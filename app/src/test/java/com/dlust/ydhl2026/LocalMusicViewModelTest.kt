@@ -90,6 +90,29 @@ class LocalMusicViewModelTest {
   }
 
   @Test
+  fun `扫描时权限被收回会退回权限引导并清空缓存`() {
+    store.replace(sampleSongs())
+    val source = FakeLocalMusicSource(emptyList(), SecurityException("no permission"))
+    val viewModel = LocalMusicViewModel(source, store)
+
+    viewModel.startScan()
+
+    assertEquals(LocalMusicPhase.PERMISSION, viewModel.uiState.value.phase)
+    assertTrue(viewModel.uiState.value.songs.isEmpty())
+    assertTrue(store.songs.value.isEmpty())
+  }
+
+  @Test
+  fun `其他扫描异常仍按空态处理`() {
+    val source = FakeLocalMusicSource(emptyList(), IllegalStateException("cursor closed"))
+    val viewModel = LocalMusicViewModel(source, store)
+
+    viewModel.onPermissionResult(true)
+
+    assertEquals(LocalMusicPhase.EMPTY, viewModel.uiState.value.phase)
+  }
+
+  @Test
   fun `上次扫描的缓存会在进入页面时直接展示`() {
     store.replace(sampleSongs())
     val viewModel = LocalMusicViewModel(FakeLocalMusicSource(emptyList()), store)

@@ -1,8 +1,13 @@
 package com.dlust.ydhl2026.ui.local
 
 import android.Manifest
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.LinearEasing
@@ -35,11 +40,11 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,6 +62,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dlust.ydhl2026.data.model.Song
@@ -104,20 +111,25 @@ fun LocalMusicScreen(
   } else {
     Manifest.permission.READ_EXTERNAL_STORAGE
   }
-  var hasPermission by remember {
-    mutableStateOf(
-      ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
-    )
-  }
+  val activity = LocalActivity.current
+  var hasPermission by remember { mutableStateOf(context.hasPermission(permission)) }
+  // 只有真正请求过一次之后，rationale=false 才代表用户选了「不再询问 / 永久拒绝」
+  var requested by rememberSaveable { mutableStateOf(false) }
+  val permanentlyDenied = requested &&
+    !hasPermission &&
+    activity?.shouldShowRequestPermissionRationale(permission) == false
+
   val permissionLauncher = rememberLauncherForActivityResult(
     ActivityResultContracts.RequestPermission()
   ) { granted ->
+    requested = true
     hasPermission = granted
     viewModel.onPermissionResult(granted)
   }
 
-  // 已有权限但还没扫过（无缓存）时自动开扫；被拒绝则停在引导页
-  LaunchedEffect(hasPermission) {
+  // 回页面（含从系统设置返回）时重新读权限：刚开启就自动补扫
+  LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+    hasPermission = context.hasPermission(permission)
     if (hasPermission && viewModel.uiState.value.phase == LocalMusicPhase.PERMISSION) {
       viewModel.onPermissionResult(true)
     }
@@ -162,7 +174,16 @@ fun LocalMusicScreen(
       when (state.phase) {
         LocalMusicPhase.PERMISSION -> PermissionView(
           isDark = isDark,
+          permanentlyDenied = permanentlyDenied,
           onGrant = { permissionLauncher.launch(permission) },
+          onOpenSettings = {
+            context.startActivity(
+              Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.fromParts("package", context.packageName, null)
+              )
+            )
+          },
           onSkip = onBack
         )
 
@@ -228,11 +249,13 @@ private fun NavBar(
   }
 }
 
-/** 未授权：说明用途 + 一键申请 */
+/** 未授权：说明用途 + 一键申请；永久拒绝后改为引导去系统设置 */
 @Composable
 private fun PermissionView(
   isDark: Boolean,
+  permanentlyDenied: Boolean,
   onGrant: () -> Unit,
+  onOpenSettings: () -> Unit,
   onSkip: () -> Unit,
   modifier: Modifier = Modifier
 ) {
@@ -284,17 +307,31 @@ private fun PermissionView(
     PermissionItem("01", "只读取音频文件，不访问照片和通讯录", isDark)
     PermissionItem("02", "文件不会上传，全部留在本机", isDark)
     PermissionItem("03", "随时可以在系统设置里收回权限", isDark)
-    Spacer(Modifier.height(28.dp))
+    Spacer(Modifier.height(if (permanentlyDenied) 16.dp else 28.dp))
+    if (permanentlyDenied) {
+      Text(
+        text = "权限已被永久拒绝，需要到系统设置里手动开启",
+        color = EchoTextSecondary,
+        fontSize = 11.5.sp,
+        textAlign = TextAlign.Center
+      )
+      Spacer(Modifier.height(12.dp))
+    }
     Box(
       modifier = Modifier
         .fillMaxWidth()
         .height(48.dp)
         .clip(RoundedCornerShape(24.dp))
         .background(EchoBlue)
-        .clickable(onClick = onGrant),
+        .clickable(onClick = if (permanentlyDenied) onOpenSettings else onGrant),
       contentAlignment = Alignment.Center
     ) {
-      Text(text = "允许读取本地音乐", color = Color.White, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold)
+      Text(
+        text = if (permanentlyDenied) "去系统设置开启" else "允许读取本地音乐",
+        color = Color.White,
+        fontSize = 14.5.sp,
+        fontWeight = FontWeight.SemiBold
+      )
     }
     Spacer(Modifier.height(10.dp))
     Text(
@@ -646,23 +683,14 @@ private fun LocalSongRow(
       } else {
         Text(text = formatDuration(song.durationMs), color = EchoTextSecondary, fontSize = 11.5.sp)
       }
-      FormatTag(format = formatLabel(song), isDark = isDark)
+      FormatTag(format = audioFormatLabel(song.mimeType, song.sourceUrl), isDark = isDark)
     }
   }
 }
 
-/** 从 content URI 猜文件格式，猜不出就显示 LOCAL */
-private fun formatLabel(song: Song): String {
-  val path = song.sourceUrl.substringBefore('?').lowercase()
-  return when {
-    path.endsWith(".mp3") -> "MP3"
-    path.endsWith(".flac") -> "FLAC"
-    path.endsWith(".m4a") || path.endsWith(".mp4") || path.endsWith(".aac") -> "M4A"
-    path.endsWith(".ogg") || path.endsWith(".oga") || path.endsWith(".opus") -> "OGG"
-    path.endsWith(".wav") -> "WAV"
-    else -> "AUDIO"
-  }
-}
+/** 运行时权限检查：13+ 读音频权限、12 及以下读存储权限 */
+private fun Context.hasPermission(permission: String): Boolean =
+  ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
 
 @Composable
 private fun FormatTag(format: String, isDark: Boolean, modifier: Modifier = Modifier) {

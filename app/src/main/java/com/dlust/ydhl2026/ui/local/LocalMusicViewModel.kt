@@ -61,7 +61,22 @@ class LocalMusicViewModel(
   fun startScan() {
     _uiState.update { it.copy(phase = LocalMusicPhase.SCANNING) }
     viewModelScope.launch {
-      val songs = runCatching { source.scan() }.getOrDefault(emptyList())
+      val result = runCatching { source.scan() }
+      // 权限在扫描途中被收回时 MediaStore 会抛 SecurityException，
+      // 此时要退回权限引导页，而不是伪装成「没有本地音乐」
+      if (result.isFailure && result.exceptionOrNull() is SecurityException) {
+        store.replace(emptyList())
+        _uiState.update {
+          it.copy(
+            phase = LocalMusicPhase.PERMISSION,
+            songs = emptyList(),
+            visible = emptyList(),
+            query = ""
+          )
+        }
+        return@launch
+      }
+      val songs = result.getOrDefault(emptyList())
       store.replace(songs)
       _uiState.update {
         if (songs.isEmpty()) {

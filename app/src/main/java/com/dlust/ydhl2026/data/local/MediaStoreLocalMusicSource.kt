@@ -30,7 +30,8 @@ class MediaStoreLocalMusicSource(
       MediaStore.Audio.Media.ARTIST,
       MediaStore.Audio.Media.ALBUM,
       MediaStore.Audio.Media.DURATION,
-      MediaStore.Audio.Media.DATE_ADDED
+      MediaStore.Audio.Media.DATE_ADDED,
+      MediaStore.Audio.Media.MIME_TYPE
     )
     // 只要真正的歌曲：有时长、时长达标；标题缺失的也跳过
     val selection = "${MediaStore.Audio.Media.DURATION} >= ?"
@@ -50,6 +51,7 @@ class MediaStoreLocalMusicSource(
       val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
       val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
       val addedCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
+      val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
       while (cursor.moveToNext()) {
         val title = cursor.getString(titleCol) ?: continue
         val mediaId = cursor.getLong(idCol)
@@ -66,7 +68,8 @@ class MediaStoreLocalMusicSource(
           source = "local",
           sourceUrl = ContentUris.withAppendedId(collection, mediaId).toString(),
           lyrics = emptyList(),
-          lastModifiedAt = cursor.getLong(addedCol) * 1000L
+          lastModifiedAt = cursor.getLong(addedCol) * 1000L,
+          mimeType = cursor.getString(mimeCol)
         )
       }
     }
