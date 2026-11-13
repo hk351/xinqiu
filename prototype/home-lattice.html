@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Echo · 海报墙首页 Demo</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html,body{min-height:100%;font-family:"PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif}
+
+  :root{
+    --bg:#08090c;
+    --text:#f2f3f7;
+    --text2:rgba(242,243,247,.55);
+    --text3:rgba(242,243,247,.32);
+    --accent:#6c8cff;
+    --accent-soft:rgba(108,140,255,.5);
+  }
+
+  body{
+    display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:center;
+    gap:56px;padding:40px 32px 64px;
+    background:radial-gradient(circle at 50% 0%,#161a26,#0a0b10 60%);
+    color:#e8eaf0;
+  }
+  .stage{display:flex;flex-direction:column;align-items:center;gap:16px}
+  .stage-tag{font-size:12px;letter-spacing:2px;color:rgba(232,234,240,.45);text-transform:uppercase}
+
+  .phone{
+    position:relative;width:390px;height:844px;border-radius:46px;overflow:hidden;
+    background:var(--bg);color:var(--text);
+    box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 10px #12131a,0 0 0 11px #1f2029;
+  }
+
+  /* ---------- 顶部 ---------- */
+  .statusbar{
+    height:50px;display:flex;align-items:flex-end;justify-content:space-between;
+    padding:0 22px 4px;font-size:12px;font-weight:600;letter-spacing:.4px;
+  }
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 2px}
+  .brand{font-size:17px;font-weight:800;letter-spacing:2px}
+  .brand span{color:var(--accent)}
+  .top-actions{display:flex;align-items:center;gap:14px;color:var(--text2)}
+  .top-actions svg{display:block}
+  .avatar{
+    width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
+    font-size:11px;font-weight:700;color:#0b1020;
+    background:linear-gradient(150deg,#ffd54f,#f9a825);
+  }
+
+  /* ---------- 文字 Tab ---------- */
+  .tabs{display:flex;gap:22px;padding:14px 16px 10px;position:relative}
+  .tab{font-size:13.5px;color:var(--text3);cursor:pointer;padding-bottom:6px;transition:color .2s}
+  .tab.on{color:var(--text);font-weight:700}
+  .tab.on::after{
+    content:"";position:absolute;bottom:4px;height:2px;width:14px;border-radius:1px;
+    background:var(--accent);margin-left:-19px;
+  }
+
+  /* ---------- 海报墙 ---------- */
+  .wall{
+    position:absolute;top:150px;bottom:0;left:0;right:0;
+    padding:0 12px 92px;overflow-y:auto;
+    column-count:2;column-gap:6px;
+    scrollbar-width:none;
+  }
+  .wall::-webkit-scrollbar{display:none}
+
+  .tile{break-inside:avoid;margin-bottom:6px;cursor:pointer}
+  .tile:active .cover{transform:scale(.985)}
+  .cover{
+    position:relative;border-radius:3px;overflow:hidden;
+    transition:transform .18s ease;
+    background:#14161d;
+  }
+  .cover::after{
+    content:"";position:absolute;inset:0;
+    background:linear-gradient(180deg,transparent 55%,rgba(0,0,0,.42));
+    opacity:.9;
+  }
+  .num{
+    position:absolute;top:0;left:0;z-index:2;
+    font-size:9px;letter-spacing:.6px;padding:3px 5px;
+    background:rgba(0,0,0,.55);color:rgba(255,255,255,.8);
+    font-variant-numeric:tabular-nums;
+  }
+  .tile.playing .cover{outline:1px solid var(--accent);outline-offset:1px}
+  .eq{
+    position:absolute;right:8px;bottom:8px;z-index:2;display:flex;align-items:flex-end;gap:2px;height:12px;
+  }
+  .eq i{width:2px;background:var(--accent);border-radius:1px;animation:eq 900ms ease-in-out infinite}
+  .eq i:nth-child(1){height:5px;animation-delay:0ms}
+  .eq i:nth-child(2){height:11px;animation-delay:160ms}
+  .eq i:nth-child(3){height:7px;animation-delay:320ms}
+  @keyframes eq{0%,100%{transform:scaleY(.45)}50%{transform:scaleY(1)}}
+
+  .meta{padding:7px 2px 2px}
+  .meta .title{font-size:12.5px;font-weight:600;letter-spacing:.2px}
+  .meta .sub{font-size:10.5px;color:var(--text2);margin-top:3px}
+
+  /* 封面：无素材时用渐变模拟 */
+  .g1{background:radial-gradient(120% 90% at 20% 15%,#6b4a2f,#20140d 70%),linear-gradient(160deg,#8a5a33,#1a120c)}
+  .g2{background:radial-gradient(120% 90% at 70% 20%,#41506b,#0f131c 70%),linear-gradient(160deg,#2c3a55,#0b0f16)}
+  .g3{background:radial-gradient(130% 90% at 30% 80%,#7a2f36,#160a0c 72%),linear-gradient(160deg,#8e3a42,#12080a)}
+  .g4{background:radial-gradient(130% 90% at 60% 25%,#3c5a4a,#0c1310 72%),linear-gradient(160deg,#2f4a3d,#0a100d)}
+  .g5{background:radial-gradient(120% 100% at 50% 40%,#5b4b86,#100d1a 72%),linear-gradient(160deg,#3a2f5e,#0b0a12)}
+  .g6{background:radial-gradient(120% 90% at 30% 30%,#8b7a4a,#161208 70%),linear-gradient(160deg,#6d5f37,#120f08)}
+  .g7{background:radial-gradient(130% 100% at 70% 60%,#2f5b6b,#08131a 72%),linear-gradient(160deg,#27505f,#071016)}
+  .g8{background:radial-gradient(120% 90% at 40% 20%,#6b3352,#140a10 72%),linear-gradient(160deg,#52263e,#0f080c)}
+
+  .h1{aspect-ratio:1/1}
+  .h2{aspect-ratio:3/4}
+  .h3{aspect-ratio:4/5}
+  .h4{aspect-ratio:1/1.15}
+
+  /* ---------- 迷你播放条 ---------- */
+  .mini{
+    position:absolute;left:0;right:0;bottom:0;z-index:4;
+    padding:14px 18px 18px;
+    background:linear-gradient(180deg,rgba(8,9,12,0),rgba(8,9,12,.92) 42%,#08090c);
+  }
+  .mini-progress{height:1.5px;background:rgba(255,255,255,.12);border-radius:1px;overflow:hidden}
+  .mini-progress i{display:block;height:100%;width:37%;background:var(--accent)}
+  .mini-row{display:flex;align-items:center;gap:12px;margin-top:11px}
+  .mini-txt{flex:1;min-width:0}
+  .mini-txt .t{font-size:12.5px;font-weight:600}
+  .mini-txt .s{font-size:10.5px;color:var(--text2);margin-top:2px}
+  .mini-btn{
+    width:34px;height:34px;border:none;background:transparent;color:var(--text);
+    display:grid;place-items:center;cursor:pointer;opacity:.9;flex:none;
+  }
+  .mini-btn:active{opacity:.5}
+
+  /* ---------- 原位展开面板 ---------- */
+  .scrim{
+    position:absolute;inset:0;z-index:6;background:rgba(0,0,0,.58);
+    opacity:0;pointer-events:none;transition:opacity 200ms ease;
+  }
+  .scrim.show{opacity:1}
+  .panel{
+    position:absolute;z-index:7;left:14px;right:14px;top:118px;height:576px;
+    border-radius:4px;overflow:hidden;background:#111;
+    opacity:0;pointer-events:none;
+    transform-origin:center center;
+    will-change:transform;
+  }
+  .panel.open{opacity:1;pointer-events:auto}
+  .p-inner{position:absolute;inset:0;transition:opacity 180ms ease}
+  .p-cover{position:absolute;inset:0}
+  .p-cover::after{
+    content:"";position:absolute;inset:0;
+    background:linear-gradient(180deg,rgba(0,0,0,0) 40%,rgba(0,0,0,.72) 78%,rgba(0,0,0,.9));
+  }
+  .p-top{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:10px}
+  .p-badge{font-size:9px;letter-spacing:.6px;padding:3px 5px;background:rgba(0,0,0,.5);color:rgba(255,255,255,.8);border-radius:2px}
+  .p-icons{display:flex;gap:8px}
+  .p-icon{
+    width:30px;height:30px;border-radius:7px;border:1px solid rgba(255,255,255,.18);
+    background:rgba(0,0,0,.35);color:rgba(255,255,255,.85);
+    display:grid;place-items:center;cursor:pointer;font-size:12px;
+  }
+  .p-icon:active{background:rgba(255,255,255,.14)}
+  .p-bottom{position:absolute;left:0;right:0;bottom:0;padding:0 16px 14px}
+  .p-title{font-size:24px;font-weight:800;letter-spacing:.5px;line-height:1.15}
+  .p-sub{font-size:11px;color:rgba(255,255,255,.62);margin-top:7px}
+  .p-controls{display:flex;align-items:center;gap:16px;margin-top:14px}
+  .p-play{
+    width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,.28);
+    background:rgba(255,255,255,.06);color:#fff;display:grid;place-items:center;cursor:pointer;
+  }
+  .p-play:active{background:rgba(255,255,255,.16)}
+  .p-queue{font-size:11px;color:rgba(255,255,255,.62);display:flex;align-items:center;gap:5px}
+  .p-line{height:2px;background:rgba(255,255,255,.16);border-radius:1px;margin-top:16px;overflow:hidden}
+  .p-line i{display:block;height:100%;width:37%;background:var(--accent)}
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="stage-tag">Echo · Home / Poster Wall</div>
+    <div class="phone">
+      <div class="statusbar"><span>9:41</span><span>●●● ⌁ ▮</span></div>
+
+      <div class="topbar">
+        <div class="brand">EC<span>H</span>O</div>
+        <div class="top-actions">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/>
+          </svg>
+          <div class="avatar">H</div>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <div class="tab on">推荐</div>
+        <div class="tab">最近</div>
+        <div class="tab">歌单</div>
+        <div class="tab">本地</div>
+      </div>
+
+      <div class="wall" id="wall">
+        <div class="tile playing" data-title="稻香" data-artist="周杰伦" data-album="魔杰座" data-dur="3:43">
+          <div class="cover h2 g1"><span class="num">01</span>
+            <div class="eq"><i></i><i></i><i></i></div>
+          </div>
+          <div class="meta"><div class="title">稻香</div><div class="sub">周杰伦 · 听过 1 次</div></div>
+        </div>
+
+        <div class="tile" data-title="浮夸" data-artist="陈奕迅" data-album="U87" data-dur="4:46">
+          <div class="cover h1 g3"><span class="num">02</span></div>
+          <div class="meta"><div class="title">浮夸</div><div class="sub">陈奕迅 · 听过 1 次</div></div>
+        </div>
+
+        <div class="tile" data-title="海阔天空" data-artist="Beyond" data-album="乐与怒" data-dur="5:25">
+          <div class="cover h4 g7"><span class="num">03</span></div>
+          <div class="meta"><div class="title">海阔天空</div><div class="sub">Beyond · 听过 1 次</div></div>
+        </div>
+
+        <div class="tile" data-title="HK 喜欢的音乐" data-artist="歌单 · 138 首" data-album="" data-dur="">
+          <div class="cover h2 g6"><span class="num">04</span></div>
+          <div class="meta"><div class="title">HK 喜欢的音乐</div><div class="sub">歌单 · 138 首</div></div>
+        </div>
+
+        <div class="tile" data-title="平凡之路" data-artist="朴树" data-album="猎户星座" data-dur="5:02">
+          <div class="cover h1 g4"><span class="num">05</span></div>
+          <div class="meta"><div class="title">平凡之路</div><div class="sub">朴树 · 听过 1 次</div></div>
+        </div>
+
+        <div class="tile" data-title="夜曲" data-artist="周杰伦" data-album="十一月的萧邦" data-dur="3:46">
+          <div class="cover h3 g5"><span class="num">06</span></div>
+          <div class="meta"><div class="title">夜曲</div><div class="sub">周杰伦 · 听过 1 次</div></div>
+        </div>
+
+        <div class="tile" data-title="听歌排行 · 最近一周" data-artist="歌单 · 100 首" data-album="" data-dur="">
+          <div class="cover h2 g8"><span class="num">07</span></div>
+          <div class="meta"><div class="title">听歌排行 · 最近一周</div><div class="sub">歌单 · 100 首</div></div>
+        </div>
+
+        <div class="tile" data-title="晴天" data-artist="周杰伦" data-album="叶惠美" data-dur="4:29">
+          <div class="cover h1 g2"><span class="num">08</span></div>
+          <div class="meta"><div class="title">晴天</div><div class="sub">周杰伦 · 听过 1 次</div></div>
+        </div>
+
+        <div class="tile" data-title="七里香" data-artist="周杰伦" data-album="七里香" data-dur="4:59">
+          <div class="cover h3 g6"><span class="num">09</span></div>
+          <div class="meta"><div class="title">七里香</div><div class="sub">周杰伦 · 听过 1 次</div></div>
+        </div>
+
+        <div class="tile" data-title="后来" data-artist="刘若英" data-album="我等你" data-dur="5:41">
+          <div class="cover h2 g3"><span class="num">10</span></div>
+          <div class="meta"><div class="title">后来</div><div class="sub">刘若英 · 听过 1 次</div></div>
+        </div>
+      </div>
+
+      <div class="mini">
+        <div class="mini-progress"><i></i></div>
+        <div class="mini-row">
+          <div class="mini-txt"><div class="t">稻香</div><div class="s">周杰伦 · 魔杰座</div></div>
+          <button class="mini-btn" aria-label="播放">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+          </button>
+          <button class="mini-btn" aria-label="下一首">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M5 5l9 7-9 7z"/><rect x="16" y="5" width="2.4" height="14" rx="1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="scrim" id="scrim"></div>
+
+      <div class="panel" id="panel">
+        <div class="p-inner" id="pInner">
+          <div class="p-cover" id="pCover"></div>
+          <div class="p-top">
+            <div class="p-badge" id="pBadge">01</div>
+            <div class="p-icons">
+              <div class="p-icon" aria-label="分享">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 15V4m0 0L8 8m4-4 4 4"/><path d="M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>
+              </div>
+              <div class="p-icon" aria-label="收藏">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 4l2.4 5.1 5.6.7-4.1 3.9 1.1 5.5L12 16.6 7 19.2l1.1-5.5L4 9.8l5.6-.7z"/></svg>
+              </div>
+            </div>
+          </div>
+          <div class="p-bottom">
+            <div class="p-title" id="pTitle">稻香</div>
+            <div class="p-sub" id="pSub">周杰伦 · 魔杰座 · 3:43</div>
+            <div class="p-controls">
+              <button class="p-play" aria-label="播放">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+              </button>
+              <div class="p-queue">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h10M4 17h7"/></svg>
+                已在队列
+              </div>
+            </div>
+            <div class="p-line"><i></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const wall = document.getElementById('wall');
+  const scrim = document.getElementById('scrim');
+  const panel = document.getElementById('panel');
+  const pInner = document.getElementById('pInner');
+  const pCover = document.getElementById('pCover');
+  const pTitle = document.getElementById('pTitle');
+  const pSub = document.getElementById('pSub');
+  const pBadge = document.getElementById('pBadge');
+  let openTile = null;
+
+  // 面板展开：从被点卡片的位置放大到最终面板，制造“原地展开”的连续感
+  function openPanel(tile){
+    openTile = tile;
+    const cover = tile.querySelector('.cover');
+    pCover.className = 'p-cover ' + [...cover.classList].filter(c => c !== 'h1' && c !== 'h2' && c !== 'h3' && c !== 'h4').join(' ');
+    pTitle.textContent = tile.dataset.title;
+    const subParts = [tile.dataset.artist, tile.dataset.album, tile.dataset.dur].filter(Boolean);
+    pSub.textContent = subParts.join(' · ');
+    pBadge.textContent = tile.querySelector('.num').textContent;
+
+    panel.classList.add('open');
+    const tr = cover.getBoundingClientRect();
+    const pr = panel.getBoundingClientRect();
+    const dx = (tr.left + tr.width / 2) - (pr.left + pr.width / 2);
+    const dy = (tr.top + tr.height / 2) - (pr.top + pr.height / 2);
+    const scale = tr.width / pr.width;
+
+    panel.style.transition = 'none';
+    panel.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
+    pInner.style.opacity = '0';
+
+    requestAnimationFrame(() => {
+      panel.style.transition = 'transform 260ms cubic-bezier(.22,.8,.2,1)';
+      panel.style.transform = 'translate(0,0) scale(1)';
+      requestAnimationFrame(() => { pInner.style.opacity = '1'; });
+    });
+    scrim.classList.add('show');
+  }
+
+  function closePanel(){
+    if (!openTile) return;
+    const tr = openTile.querySelector('.cover').getBoundingClientRect();
+    const pr = panel.getBoundingClientRect();
+    // 用当前视觉位置计算回到卡片的位移
+    const dx = (tr.left + tr.width / 2) - (pr.left + pr.width / 2);
+    const dy = (tr.top + tr.height / 2) - (pr.top + pr.height / 2);
+    const scale = tr.width / pr.width;
+    pInner.style.opacity = '0';
+    panel.style.transition = 'transform 240ms cubic-bezier(.4,0,.2,1)';
+    panel.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
+    scrim.classList.remove('show');
+    setTimeout(() => {
+      panel.classList.remove('open');
+      panel.style.transition = 'none';
+      panel.style.transform = 'none';
+    }, 250);
+    openTile = null;
+  }
+
+  wall.addEventListener('click', (e) => {
+    const tile = e.target.closest('.tile');
+    if (tile) openPanel(tile);
+  });
+  scrim.addEventListener('click', closePanel);
+  panel.addEventListener('click', (e) => {
+    if (e.target.closest('.p-icon') || e.target.closest('.p-play')) return;
+    closePanel();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanel(); });
+
+  // Tab 仅做视觉切换，表明选中态
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+      tab.classList.add('on');
+    });
+  });
+</script>
+</body>
+</html>
