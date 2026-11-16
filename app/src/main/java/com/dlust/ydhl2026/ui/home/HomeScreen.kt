@@ -111,6 +111,7 @@ fun HomeScreen(
   playerViewModel: PlayerViewModel,
   onPlaylistClick: (Playlist) -> Unit = {},
   onOpenLocalMusic: () -> Unit = {},
+  onOpenProfile: () -> Unit = {},
   modifier: Modifier = Modifier
 ) {
   val context = LocalContext.current
@@ -133,7 +134,7 @@ fun HomeScreen(
         .fillMaxSize()
         .statusBarsPadding()
     ) {
-      HomeTopBar(isDark = isDark, onSearch = { showSearch = true })
+      HomeTopBar(isDark = isDark, onSearch = { showSearch = true }, onProfile = onOpenProfile)
       HomeTabRow(
         selected = state.selectedTab,
         isDark = isDark,
@@ -309,6 +310,7 @@ private fun recommendEntries(
 private fun HomeTopBar(
   isDark: Boolean,
   onSearch: () -> Unit,
+  onProfile: () -> Unit,
   modifier: Modifier = Modifier
 ) {
   Row(
@@ -356,7 +358,8 @@ private fun HomeTopBar(
         .clip(CircleShape)
         .background(
           Brush.linearGradient(listOf(Color(0xFFFFD54F), Color(0xFFF9A825)))
-        ),
+        )
+        .clickable(onClick = onProfile),
       contentAlignment = Alignment.Center
     ) {
       Text(text = "H", color = Color(0xFF0B1020), fontSize = 11.sp, fontWeight = FontWeight.Bold)

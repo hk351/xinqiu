@@ -26,10 +26,10 @@ private val OnSplash = Color.White
 private val OnSplashDim = Color.White.copy(alpha = 0.55f)
 
 @Composable
-fun SplashScreen(onNavigateToLogin: () -> Unit) {
+fun SplashScreen(onFinished: () -> Unit) {
   LaunchedEffect(Unit) {
     delay(2000)
-    onNavigateToLogin()
+    onFinished()
   }
 
   Box(

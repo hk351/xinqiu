@@ -34,8 +34,9 @@ class MainActivity : ComponentActivity() {
         NavHost(navController = navController, startDestination = "splash") {
           composable(route = "splash") {
             SplashScreen(
-              onNavigateToLogin = {
-                navController.navigate(route = "login") {
+              onFinished = {
+                // 启动后直接进主界面，登录改为首页头像里的可选操作
+                navController.navigate(route = "home") {
                   popUpTo(route = "splash") { inclusive = true }
                 }
               }
@@ -43,11 +44,8 @@ class MainActivity : ComponentActivity() {
           }
           composable(route = "login") {
             LoginScreen(
-              onLoginSuccess = {
-                navController.navigate(route = "home") {
-                  popUpTo(route = "login") { inclusive = true }
-                }
-              }
+              onLoginSuccess = { navController.popBackStack() },
+              onClose = { navController.popBackStack() }
             )
           }
           composable(route = "home") {
@@ -56,7 +54,8 @@ class MainActivity : ComponentActivity() {
               onPlaylistClick = { playlist ->
                 navController.navigate(route = "playlist/${playlist.id}")
               },
-              onOpenLocalMusic = { navController.navigate(route = "local") }
+              onOpenLocalMusic = { navController.navigate(route = "local") },
+              onOpenProfile = { navController.navigate(route = "login") }
             )
           }
           composable(route = "local") {

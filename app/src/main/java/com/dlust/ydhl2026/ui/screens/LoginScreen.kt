@@ -45,6 +45,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import com.dlust.ydhl2026.ui.components.ArrowBackIcon
 import com.dlust.ydhl2026.ui.components.EchoMascot
 import com.dlust.ydhl2026.ui.components.MascotGaze
 import androidx.compose.ui.text.TextStyle
@@ -72,7 +73,7 @@ private fun isPhoneValid(phone: String): Boolean =
   phone.length == 11 && phone.startsWith("1") && phone.all { it.isDigit() }
 
 @Composable
-fun LoginScreen(onLoginSuccess: () -> Unit) {
+fun LoginScreen(onLoginSuccess: () -> Unit, onClose: () -> Unit) {
   val context = LocalContext.current
   val scope = rememberCoroutineScope()
 
@@ -139,39 +140,42 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
       .statusBarsPadding()
       .imePadding()
       .verticalScroll(rememberScrollState())
-      .padding(horizontal = 28.dp)
+      .padding(horizontal = 24.dp)
   ) {
-    Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(8.dp))
     Row(
       modifier = Modifier.fillMaxWidth(),
       horizontalArrangement = Arrangement.SpaceBetween,
       verticalAlignment = Alignment.CenterVertically
     ) {
+      // 登录页现在由首页头像进入，返回箭头比「跳过」更符合使用路径
+      Box(
+        modifier = Modifier
+          .size(32.dp)
+          .clip(CircleShape)
+          .clickable(onClick = onClose),
+        contentAlignment = Alignment.Center
+      ) {
+        ArrowBackIcon(
+          modifier = Modifier.size(18.dp),
+          color = textMain
+        )
+      }
       DarkModeButton(
         isDark = isDark,
         borderColor = borderColor,
         onClick = { isDark = !isDark }
       )
-      // 测试入口：跳过账号校验直接进首页，方便频繁重装后快速验证页面
-      Text(
-        text = "跳过",
-        color = textSecondary,
-        fontSize = 13.sp,
-        modifier = Modifier
-          .clip(RoundedCornerShape(8.dp))
-          .clickable(onClick = onLoginSuccess)
-          .padding(horizontal = 10.dp, vertical = 6.dp)
-      )
     }
-    Spacer(Modifier.height(28.dp))
+    Spacer(Modifier.height(14.dp))
     Text(
       text = "Welcome",
       color = brandColor,
-      fontSize = 28.sp,
+      fontSize = 22.sp,
       fontWeight = FontWeight.Bold,
       modifier = Modifier.align(Alignment.CenterHorizontally)
     )
-    Spacer(Modifier.height(6.dp))
+    Spacer(Modifier.height(2.dp))
     EchoMascot(
       gaze = gaze,
       coveringEyes = gaze == MascotGaze.PASSWORD && !passwordVisible,
@@ -180,7 +184,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
       faceColor = brandColor,
       modifier = Modifier.align(Alignment.CenterHorizontally)
     )
-    Spacer(Modifier.height(20.dp))
+    Spacer(Modifier.height(12.dp))
 
     OutlinedTextField(
       value = phone,
@@ -208,14 +212,14 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
         .onFocusChanged { if (it.isFocused) gaze = MascotGaze.PHONE }
     )
 
-    Spacer(Modifier.height(24.dp))
+    Spacer(Modifier.height(16.dp))
     LoginMethodTab(
       useSmsLogin = useSmsLogin,
       brandColor = brandColor,
       textSecondary = textSecondary,
       onSelect = { useSmsLogin = it; errorMessage = null }
     )
-    Spacer(Modifier.height(16.dp))
+    Spacer(Modifier.height(12.dp))
 
     if (useSmsLogin) {
       OutlinedTextField(
@@ -314,18 +318,18 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
       )
     }
 
-    Spacer(Modifier.height(24.dp))
+    Spacer(Modifier.height(16.dp))
     Button(
       onClick = { attemptLogin() },
       enabled = loginEnabled,
-      shape = RoundedCornerShape(21.dp),
+      shape = RoundedCornerShape(20.dp),
       colors = ButtonDefaults.buttonColors(
         containerColor = brandColor,
         disabledContainerColor = brandColor.copy(alpha = 0.35f)
       ),
       modifier = Modifier
         .fillMaxWidth()
-        .height(42.dp)
+        .height(40.dp)
     ) {
       if (isLoading) {
         CircularProgressIndicator(
@@ -342,35 +346,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
         )
       }
     }
-
-    Spacer(Modifier.height(40.dp))
-    Text(
-      text = "其他登录方式",
-      color = textSecondary,
-      fontSize = 11.sp,
-      modifier = Modifier.align(Alignment.CenterHorizontally)
-    )
-    Spacer(Modifier.height(12.dp))
-    Row(
-      modifier = Modifier.align(Alignment.CenterHorizontally),
-      horizontalArrangement = Arrangement.spacedBy(20.dp)
-    ) {
-      OtherLoginCircle("微", borderColor, textSecondary) {
-        Toast.makeText(context, "微信登录暂未接入，敬请期待", Toast.LENGTH_SHORT).show()
-      }
-      OtherLoginCircle("Q", borderColor, textSecondary) {
-        Toast.makeText(context, "QQ 登录暂未接入，敬请期待", Toast.LENGTH_SHORT).show()
-      }
-    }
-    Spacer(Modifier.height(16.dp))
-    AgreementLine(
-      brandColor = brandColor,
-      textSecondary = textSecondary,
-      onTapLink = {
-        Toast.makeText(context, "文档整理中，敬请期待", Toast.LENGTH_SHORT).show()
-      }
-    )
-    Spacer(Modifier.height(16.dp))
+    Spacer(Modifier.height(24.dp))
   }
 }
 
@@ -437,52 +413,5 @@ private fun TabItem(
         .height(2.dp)
         .background(if (selected) brandColor else Color.Transparent)
     )
-  }
-}
-
-@Composable
-private fun OtherLoginCircle(
-  label: String,
-  borderColor: Color,
-  labelColor: Color,
-  onClick: () -> Unit
-) {
-  Box(
-    modifier = Modifier
-      .size(36.dp)
-      .border(width = 1.dp, color = borderColor, shape = CircleShape)
-      .clickable(onClick = onClick),
-    contentAlignment = Alignment.Center
-  ) {
-    Text(
-      text = label,
-      color = labelColor,
-      fontSize = 13.sp
-    )
-  }
-}
-
-@Composable
-private fun AgreementLine(brandColor: Color, textSecondary: Color, onTapLink: () -> Unit) {
-  Box(
-    modifier = Modifier.fillMaxWidth(),
-    contentAlignment = Alignment.Center
-  ) {
-    Row {
-      Text(text = "登录即代表同意 ", color = textSecondary, fontSize = 10.sp)
-      Text(
-        text = "《用户协议》",
-        color = brandColor,
-        fontSize = 10.sp,
-        modifier = Modifier.clickable(onClick = onTapLink)
-      )
-      Text(text = " 和 ", color = textSecondary, fontSize = 10.sp)
-      Text(
-        text = "《隐私政策》",
-        color = brandColor,
-        fontSize = 10.sp,
-        modifier = Modifier.clickable(onClick = onTapLink)
-      )
-    }
   }
 }

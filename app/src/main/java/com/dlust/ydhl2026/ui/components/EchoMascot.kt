@@ -89,7 +89,7 @@ fun EchoMascot(
     launch { gazeY.animateTo(ty, tween(260)) }
   }
 
-  Canvas(modifier = modifier.size(width = 170.dp, height = 128.dp)) {
+  Canvas(modifier = modifier.size(width = 130.dp, height = 98.dp)) {
     val w = size.width
     val h = size.height
     val faceR = w * 0.26f
