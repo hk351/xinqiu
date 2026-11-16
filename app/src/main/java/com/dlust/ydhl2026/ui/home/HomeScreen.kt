@@ -752,7 +752,9 @@ private fun SearchResultRow(
   ) {
     CoverArt(
       seed = song.id,
-      label = "",
+      // 与本地/歌单列表的缩略图保持一致：没有真实封面时显示歌名首字
+      label = song.title.take(1),
+      labelSize = 17.sp,
       cornerRadius = 3.dp,
       modifier = Modifier.size(44.dp),
       artUrl = song.albumArtUrl

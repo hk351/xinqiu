@@ -264,7 +264,8 @@ private fun ScatterLine(
   FlowRow(
     modifier = Modifier.fillMaxWidth(),
     horizontalArrangement = Arrangement.Center,
-    verticalArrangement = Arrangement.spacedBy(8.dp)
+    // 行距要大于单字最大纵向偏移，长句折行后上下两排才不会压在一起
+    verticalArrangement = Arrangement.spacedBy(14.dp)
   ) {
     glyphs.forEachIndexed { index, glyph ->
       val visual = glyphVisualAt(

@@ -72,16 +72,13 @@ fun MiniPlayerBar(
   Column(
     modifier = modifier
       .fillMaxWidth()
-      // 用页面底色做渐变，让迷你条从海报墙里「浮」出来，而不是压一块色板
+      // 用页面底色做渐变，让迷你条从海报墙里「浮」出来，而不是压一块色板；
+      // 过渡只发生在顶部 12dp 留白内，正文区域必须完全不透明，否则列表文字会透出来
       .background(
         Brush.verticalGradient(
-          colors = listOf(
-            Color.Transparent,
-            background.copy(alpha = 0.9f),
-            background,
-            background
-          ),
-          startY = 0f
+          0f to Color.Transparent,
+          0.16f to background,
+          1f to background
         )
       )
       .clickable(
@@ -117,7 +114,9 @@ fun MiniPlayerBar(
     ) {
       CoverArt(
         seed = song.id,
-        label = "",
+        // 与本地/歌单列表的缩略图保持同一套规则：没有真实封面时用歌名首字
+        label = song.title.take(1),
+        labelSize = 13.sp,
         modifier = Modifier.size(34.dp),
         cornerRadius = 3.dp,
         artUrl = song.albumArtUrl

@@ -36,29 +36,43 @@ internal fun seededUnit(value: Int): Float {
 }
 
 /**
+ * 长句的随机偏移要收敛：字数越多，单字可用宽度越小，
+ * 保持原幅度会让相邻字互相压叠、整行被挤出屏幕。
+ */
+internal fun scatterOffsetScale(charCount: Int): Float = when {
+  charCount <= 8 -> 1f
+  charCount <= 12 -> 0.7f
+  else -> 0.5f
+}
+
+/**
  * 把一句歌词拆成逐字散落布局。
  * 同一句每次得到的位置完全一致，所以重绘、旋转屏幕都不会抖。
  */
-fun buildScatterGlyphs(text: String, lineIndex: Int): List<ScatterGlyph> =
-  text.mapIndexed { index, char ->
+fun buildScatterGlyphs(text: String, lineIndex: Int): List<ScatterGlyph> {
+  val scale = scatterOffsetScale(text.length)
+  return text.mapIndexed { index, char ->
     ScatterGlyph(
       text = char.toString(),
-      dx = (seededUnit(lineIndex * 31 + index * 7) - 0.5f) * 16f,
-      dy = (seededUnit(lineIndex * 17 + index * 13) - 0.5f) * 22f,
-      rotation = (seededUnit(lineIndex * 11 + index * 5) - 0.5f) * 12f
+      dx = (seededUnit(lineIndex * 31 + index * 7) - 0.5f) * 16f * scale,
+      dy = (seededUnit(lineIndex * 17 + index * 13) - 0.5f) * 22f * scale,
+      rotation = (seededUnit(lineIndex * 11 + index * 5) - 0.5f) * 12f * scale
     )
   }
+}
 
 /** 字号随字数递减，保证长句也能落在屏幕内 */
 fun scatterFontSizeSp(charCount: Int): Float = when {
   charCount <= 4 -> 62f
   charCount == 5 -> 56f
   charCount == 6 -> 48f
-  charCount == 7 -> 40f
-  charCount == 8 -> 36f
-  charCount <= 10 -> 31f
-  charCount <= 14 -> 27f
-  else -> 24f
+  charCount == 7 -> 42f
+  charCount == 8 -> 38f
+  charCount == 9 -> 34f
+  charCount <= 10 -> 29f
+  charCount <= 12 -> 25f
+  charCount <= 15 -> 22f
+  else -> 20f
 }
 
 /**

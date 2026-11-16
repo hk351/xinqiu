@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -87,7 +88,9 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
   var gaze by remember { mutableStateOf(MascotGaze.CENTER) }
   var typePulse by remember { mutableIntStateOf(0) }
   val brandColor = BrandBlue
-  var isDark by remember { mutableStateOf(false) }
+  // 跟随系统深色模式，右上角月亮按钮仍然可以手动切换；remember 只在首次组合时取值
+  val systemDark = isSystemInDarkTheme()
+  var isDark by remember { mutableStateOf(systemDark) }
 
   val bgColor = if (isDark) Color(0xFF0F1115) else Color.White
   val textMain = if (isDark) Color(0xFFE8EAF0) else Color(0xFF22262E)

@@ -42,6 +42,24 @@ class ScatterLineTest {
   }
 
   @Test
+  fun `字数越多散落幅度越收敛`() {
+    assertEquals(1f, scatterOffsetScale(7), 0.001f)
+    assertEquals(0.7f, scatterOffsetScale(11), 0.001f)
+    assertEquals(0.5f, scatterOffsetScale(16), 0.001f)
+    assertTrue(scatterOffsetScale(8) >= scatterOffsetScale(9))
+    assertTrue(scatterOffsetScale(12) >= scatterOffsetScale(13))
+  }
+
+  @Test
+  fun `长句散落偏移收敛后不会超出预留宽度`() {
+    // 13 字会折成两排，单字偏移必须收敛到半幅度，否则相邻字会压叠、整排会顶出屏幕
+    buildScatterGlyphs("一刹那恍惚若有所失的感觉", lineIndex = 5).forEach { glyph ->
+      assertTrue(glyph.dx.absoluteValue <= 5.6f)
+      assertTrue(glyph.dy.absoluteValue <= 7.7f)
+    }
+  }
+
+  @Test
   fun `还没到第一句时不显示任何内容`() {
     val lines = listOf(
       LyricLine(timeMs = 1_000, text = "第一句", endMs = 2_000),
