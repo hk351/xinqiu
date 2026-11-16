@@ -13,6 +13,7 @@ import com.dlust.ydhl2026.data.playback.Media3PlaybackEngine
 import com.dlust.ydhl2026.data.playback.PlaybackEngine
 import com.dlust.ydhl2026.data.repository.MockMusicRepository
 import com.dlust.ydhl2026.data.repository.MusicRepository
+import com.dlust.ydhl2026.data.settings.createPlayerBackdropStore
 
 /**
  * 手动 DI 容器（本课程不使用 Hilt）：
@@ -38,6 +39,9 @@ class EchoApp : Application() {
 
   /** 用户选过的歌词文件夹（SAF 树 URI），本地音乐页读写 */
   val lyricsFolderStore by lazy { LyricsFolderStore(this) }
+
+  /** 播放背景的用户偏好，面板里改完即持久化 */
+  val playerBackdropStore by lazy { createPlayerBackdropStore(this) }
 
   /** 本地音乐扫描结果的内存缓存，首页入口卡与本地音乐页共享 */
   val localMusicStore = LocalMusicStore()

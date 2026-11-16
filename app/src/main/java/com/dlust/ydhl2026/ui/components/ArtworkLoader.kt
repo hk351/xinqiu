@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.util.LruCache
 import android.util.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.Dispatchers
@@ -30,11 +31,29 @@ fun cachedArtwork(url: String): ImageBitmap? = artworkCache.get(url)
 suspend fun loadArtwork(context: Context, url: String): ImageBitmap? = withContext(Dispatchers.IO) {
   cachedArtwork(url)?.let { return@withContext it }
   val bitmap = runCatching { decodeArtwork(context, url) }.getOrNull()
-  if (bitmap != null) artworkCache.put(url, bitmap)
-  bitmap
+  val image = bitmap?.asImageBitmap()
+  if (image != null) artworkCache.put(url, image)
+  image
 }
 
-private fun decodeArtwork(context: Context, url: String): ImageBitmap? {
+/** 封面主色缓存：与图片同生命周期，切歌时不用重新缩图 */
+private val artworkColorCache = object : LruCache<String, Int>(32) {}
+
+/** 已经有缓存时同步取主色，背景层首帧就是正确颜色，不会先闪一下默认渐变 */
+fun cachedArtworkColor(url: String): Color? = artworkColorCache.get(url)?.let(::Color)
+
+suspend fun loadArtworkColor(context: Context, url: String): Color? = withContext(Dispatchers.IO) {
+  cachedArtworkColor(url)?.let { return@withContext it }
+  val bitmap = runCatching { decodeArtwork(context, url) }.getOrNull() ?: return@withContext null
+  // 缩到 1x1 让系统做平均，比逐像素统计快得多；背景只需要一个大致的主色
+  val scaled = Bitmap.createScaledBitmap(bitmap, 1, 1, true)
+  val pixel = scaled.getPixel(0, 0)
+  if (scaled !== bitmap) scaled.recycle()
+  artworkColorCache.put(url, pixel)
+  Color(pixel)
+}
+
+private fun decodeArtwork(context: Context, url: String): Bitmap? {
   val uri = Uri.parse(url)
   // 网络封面留给后续 Subsonic 接入，这里只处理本地 content://
   if (uri.scheme != "content") return null
@@ -49,7 +68,7 @@ private fun decodeArtwork(context: Context, url: String): ImageBitmap? {
       retriever.release()
     }
   }
-  return bitmap?.asImageBitmap()
+  return bitmap
 }
 
 private const val THUMB_SIZE = 256

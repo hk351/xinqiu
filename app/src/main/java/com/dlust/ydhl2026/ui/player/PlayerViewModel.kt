@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dlust.ydhl2026.data.model.Song
 import com.dlust.ydhl2026.data.playback.PlaybackEngine
+import com.dlust.ydhl2026.data.settings.PlayerBackdropStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,7 +18,9 @@ data class PlayerUiState(
   val repeatMode: Int = 0,        // 0=顺序 1=单曲 2=随机
   val queue: List<Song> = emptyList(),
   val positionMs: Long = 0L,
-  val durationMs: Long = 0L
+  val durationMs: Long = 0L,
+  /** 用户 DIY 的播放背景，面板与歌词舞台共用 */
+  val backdrop: PlayerBackdrop = PlayerBackdrop.Default
 )
 
 /**
@@ -29,13 +32,22 @@ data class PlayerUiState(
  * - 一首歌自然结束（引擎 completed）时按循环模式决定单曲重播、随机切歌或下一首。
  */
 class PlayerViewModel(
-  private val engine: PlaybackEngine
+  private val engine: PlaybackEngine,
+  private val backdropStore: PlayerBackdropStore
 ) : ViewModel() {
 
-  private val _uiState = MutableStateFlow(PlayerUiState())
+  private val _uiState = MutableStateFlow(
+    // 背景是本地偏好，首帧就用读回来的值，避免面板先闪一下默认样式
+    PlayerUiState(backdrop = backdropStore.backdrop.value)
+  )
   val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
 
   init {
+    viewModelScope.launch {
+      backdropStore.backdrop.collect { saved ->
+        _uiState.update { it.copy(backdrop = saved) }
+      }
+    }
     viewModelScope.launch {
       engine.state.collect { snapshot ->
         _uiState.update { state ->
@@ -115,6 +127,13 @@ class PlayerViewModel(
     val target = positionMs.coerceIn(0L, _uiState.value.durationMs)
     _uiState.update { it.copy(positionMs = target) }
     engine.seekTo(target)
+  }
+
+  /** 换预设或拖滑杆：先更新 UI，再交给 store 落盘 */
+  fun onBackdropChange(backdrop: PlayerBackdrop) {
+    val fixed = backdrop.coerce()
+    _uiState.update { it.copy(backdrop = fixed) }
+    backdropStore.update(fixed)
   }
 
   /** 切到某首歌并从头播放 */

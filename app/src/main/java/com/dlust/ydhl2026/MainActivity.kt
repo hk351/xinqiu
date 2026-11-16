@@ -16,6 +16,7 @@ import com.dlust.ydhl2026.ui.local.LocalMusicScreen
 import com.dlust.ydhl2026.ui.player.NowPlayingScreen
 import com.dlust.ydhl2026.ui.player.PlayerViewModel
 import com.dlust.ydhl2026.ui.playbackEngine
+import com.dlust.ydhl2026.ui.playerBackdropStore
 import com.dlust.ydhl2026.ui.playlist.PlaylistScreen
 import com.dlust.ydhl2026.ui.screens.LoginScreen
 import com.dlust.ydhl2026.ui.screens.SplashScreen
@@ -30,7 +31,7 @@ class MainActivity : ComponentActivity() {
         val navController = rememberNavController()
         // 播放状态要在首页（迷你条）和全屏播放器之间共享，所以提升到 Activity 作用域
         val playerViewModel: PlayerViewModel =
-          viewModel(factory = PlayerViewModelFactory(playbackEngine()))
+          viewModel(factory = PlayerViewModelFactory(playbackEngine(), playerBackdropStore()))
         NavHost(navController = navController, startDestination = "splash") {
           composable(route = "splash") {
             SplashScreen(

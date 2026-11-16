@@ -48,7 +48,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dlust.ydhl2026.data.model.Song
-import com.dlust.ydhl2026.ui.components.CoverArt
 import com.dlust.ydhl2026.ui.components.HeartIcon
 import com.dlust.ydhl2026.ui.components.PauseIcon
 import com.dlust.ydhl2026.ui.components.PlayIcon
@@ -56,6 +55,7 @@ import com.dlust.ydhl2026.ui.components.QueueListIcon
 import com.dlust.ydhl2026.ui.components.ShareIcon
 import com.dlust.ydhl2026.ui.components.SeekBar
 import com.dlust.ydhl2026.ui.components.SkipNextIcon
+import com.dlust.ydhl2026.ui.components.SparkleIcon
 import com.dlust.ydhl2026.ui.components.pressScale
 import com.dlust.ydhl2026.ui.components.progressToMs
 import com.dlust.ydhl2026.ui.formatDuration
@@ -82,6 +82,7 @@ fun NowPlayingPanelLayer(
 
   var entered by remember { mutableStateOf(false) }
   var showStage by remember { mutableStateOf(false) }
+  var showBackdrop by remember { mutableStateOf(false) }
 
   LaunchedEffect(Unit) { entered = true }
 
@@ -91,15 +92,17 @@ fun NowPlayingPanelLayer(
     label = "panelScrim"
   )
 
-  // 舞台在上层：返回键先收舞台，再收面板
+  // 层级从上到下：背景弹层 > 歌词舞台 > 面板，返回键按这个顺序逐层收起
   val dismissLayer: () -> Unit = {
-    if (showStage) {
-      showStage = false
-    } else {
-      entered = false
-      scope.launch {
-        delay(220)
-        onDismiss()
+    when {
+      showBackdrop -> showBackdrop = false
+      showStage -> showStage = false
+      else -> {
+        entered = false
+        scope.launch {
+          delay(220)
+          onDismiss()
+        }
       }
     }
   }
@@ -133,10 +136,12 @@ fun NowPlayingPanelLayer(
         positionMs = state.positionMs,
         durationMs = if (state.durationMs > 0L) state.durationMs else song.durationMs,
         queueSize = state.queue.size,
+        backdrop = state.backdrop,
         onPlayPause = playerViewModel::onPlayPause,
         onNext = playerViewModel::onNext,
         onSeek = playerViewModel::onSeekTo,
-        onOpenStage = { showStage = true }
+        onOpenStage = { showStage = true },
+        onOpenBackdrop = { showBackdrop = true }
       )
     }
 
@@ -151,8 +156,27 @@ fun NowPlayingPanelLayer(
         positionMs = state.positionMs,
         durationMs = if (state.durationMs > 0L) state.durationMs else song.durationMs,
         isPlaying = state.isPlaying,
+        backdrop = state.backdrop,
+        seed = song.id,
+        artUrl = song.albumArtUrl,
         onBack = { showStage = false },
         onSeek = playerViewModel::onSeekTo
+      )
+    }
+
+    // 背景弹层盖在最上面：改完立刻能看到面板效果，不用来回切
+    AnimatedVisibility(
+      visible = showBackdrop,
+      enter = fadeIn(tween(180)),
+      exit = fadeOut(tween(160)),
+      modifier = Modifier.fillMaxSize()
+    ) {
+      BackdropSheet(
+        backdrop = state.backdrop,
+        seed = song.id,
+        artUrl = song.albumArtUrl,
+        onBackdropChange = playerViewModel::onBackdropChange,
+        onDismiss = { showBackdrop = false }
       )
     }
   }
@@ -166,10 +190,12 @@ private fun PlayerPanel(
   positionMs: Long,
   durationMs: Long,
   queueSize: Int,
+  backdrop: PlayerBackdrop,
   onPlayPause: () -> Unit,
   onNext: () -> Unit,
   onSeek: (Long) -> Unit,
   onOpenStage: () -> Unit,
+  onOpenBackdrop: () -> Unit,
   modifier: Modifier = Modifier
 ) {
   var liked by remember(song.id) { mutableStateOf(false) }
@@ -195,12 +221,12 @@ private fun PlayerPanel(
         .height(panelHeight)
         .clip(RoundedCornerShape(4.dp))
     ) {
-      CoverArt(
+      // 背景由用户 DIY：预设决定底图，滑杆在预设推荐值上继续微调
+      PlayerBackdropLayer(
+        backdrop = backdrop,
         seed = song.id,
-        label = "",
-        cornerRadius = 0.dp,
-        modifier = Modifier.fillMaxSize(),
-        artUrl = song.albumArtUrl
+        artUrl = song.albumArtUrl,
+        modifier = Modifier.fillMaxSize()
       )
 
       // 底部压暗，标题与进度线在明亮封面上也能看清
@@ -247,6 +273,10 @@ private fun PlayerPanel(
             .padding(horizontal = 5.dp, vertical = 3.dp)
         )
         Spacer(Modifier.weight(1f))
+        PanelIconButton(onClick = onOpenBackdrop) {
+          SparkleIcon(modifier = Modifier.size(14.dp), color = Color.White.copy(alpha = 0.85f))
+        }
+        Spacer(Modifier.width(8.dp))
         PanelIconButton(onClick = {}) {
           ShareIcon(modifier = Modifier.size(14.dp), color = Color.White.copy(alpha = 0.85f))
         }

@@ -2,6 +2,9 @@ package com.dlust.ydhl2026
 
 import com.dlust.ydhl2026.data.model.Song
 import com.dlust.ydhl2026.data.playback.FakePlaybackEngine
+import com.dlust.ydhl2026.data.settings.PlayerBackdropStore
+import com.dlust.ydhl2026.ui.player.BackdropPreset
+import com.dlust.ydhl2026.ui.player.PlayerBackdrop
 import com.dlust.ydhl2026.ui.player.PlayerViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -56,7 +59,7 @@ class PlayerViewModelTest {
 
   @Test
   fun `从队列点歌会切歌并重置进度`() {
-    val viewModel = PlayerViewModel(engine)
+    val viewModel = PlayerViewModel(engine, PlayerBackdropStore())
     val queue = queue()
     viewModel.onPlaySong(queue[0], queue)
     viewModel.onSeekTo(800L)
@@ -72,7 +75,7 @@ class PlayerViewModelTest {
 
   @Test
   fun `点击越界索引不会改变当前歌曲`() {
-    val viewModel = PlayerViewModel(engine)
+    val viewModel = PlayerViewModel(engine, PlayerBackdropStore())
     val queue = queue()
     viewModel.onPlaySong(queue[0], queue)
 
@@ -84,7 +87,7 @@ class PlayerViewModelTest {
 
   @Test
   fun `队列拖拽可以前后换位`() {
-    val viewModel = PlayerViewModel(engine)
+    val viewModel = PlayerViewModel(engine, PlayerBackdropStore())
     val queue = queue()
     viewModel.onPlaySong(queue[1], queue)
 
@@ -97,7 +100,7 @@ class PlayerViewModelTest {
 
   @Test
   fun `拖拽越界时停在队列两端且不影响当前歌曲`() {
-    val viewModel = PlayerViewModel(engine)
+    val viewModel = PlayerViewModel(engine, PlayerBackdropStore())
     val queue = queue()
     viewModel.onPlaySong(queue[0], queue)
 
@@ -110,7 +113,7 @@ class PlayerViewModelTest {
 
   @Test
   fun `拖拽不存在的歌曲不会改变队列`() {
-    val viewModel = PlayerViewModel(engine)
+    val viewModel = PlayerViewModel(engine, PlayerBackdropStore())
     val queue = queue()
     viewModel.onPlaySong(queue[0], queue)
 
@@ -121,7 +124,7 @@ class PlayerViewModelTest {
 
   @Test
   fun `点歌会把歌曲地址交给播放引擎`() {
-    val viewModel = PlayerViewModel(engine)
+    val viewModel = PlayerViewModel(engine, PlayerBackdropStore())
     val queue = queue()
 
     viewModel.onPlaySong(queue[0], queue)
@@ -132,7 +135,7 @@ class PlayerViewModelTest {
 
   @Test
   fun `暂停与继续会同步给播放引擎`() {
-    val viewModel = PlayerViewModel(engine)
+    val viewModel = PlayerViewModel(engine, PlayerBackdropStore())
     val queue = queue()
     viewModel.onPlaySong(queue[0], queue)
 
@@ -147,7 +150,7 @@ class PlayerViewModelTest {
 
   @Test
   fun `拖动进度会同步给播放引擎并钳制在时长内`() {
-    val viewModel = PlayerViewModel(engine)
+    val viewModel = PlayerViewModel(engine, PlayerBackdropStore())
     val queue = queue()
     viewModel.onPlaySong(queue[0], queue)
 
@@ -160,8 +163,23 @@ class PlayerViewModelTest {
   }
 
   @Test
+  fun `换背景会同步到界面状态并落盘`() {
+    val saved = mutableListOf<PlayerBackdrop>()
+    val viewModel = PlayerViewModel(
+      engine,
+      PlayerBackdropStore(PlayerBackdrop.Default) { saved += it }
+    )
+    val chosen = PlayerBackdrop.Default.withPreset(BackdropPreset.Dominant)
+
+    viewModel.onBackdropChange(chosen)
+
+    assertEquals(BackdropPreset.Dominant, viewModel.uiState.value.backdrop.preset)
+    assertEquals(listOf(chosen), saved)
+  }
+
+  @Test
   fun `顺序模式下一首放完会自动播下一首`() {
-    val viewModel = PlayerViewModel(engine)
+    val viewModel = PlayerViewModel(engine, PlayerBackdropStore())
     val queue = queue()
     viewModel.onPlaySong(queue[0], queue)
 
@@ -176,7 +194,7 @@ class PlayerViewModelTest {
 
   @Test
   fun `单曲循环模式下一首放完会回到开头继续播放`() {
-    val viewModel = PlayerViewModel(engine)
+    val viewModel = PlayerViewModel(engine, PlayerBackdropStore())
     val queue = queue()
     viewModel.onPlaySong(queue[0], queue)
     viewModel.onRepeatModeChange()
@@ -196,7 +214,7 @@ class PlayerViewModelTest {
 
   @Test
   fun `随机模式下一首放完会切到队列里的其他歌曲`() {
-    val viewModel = PlayerViewModel(engine)
+    val viewModel = PlayerViewModel(engine, PlayerBackdropStore())
     val queue = queue()
     viewModel.onPlaySong(queue[0], queue)
     viewModel.onRepeatModeChange()

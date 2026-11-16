@@ -35,6 +35,10 @@ private val CoverGradients = listOf(
   Color(0xFF2F6F3F) to Color(0xFF6BAF7A)  // 草绿
 )
 
+/** 按 seed 取一组稳定的渐变色对，封面占位与播放背景共用同一套色板 */
+fun coverGradientPair(seed: String): Pair<Color, Color> =
+  CoverGradients[(seed.hashCode() and 0x7FFFFFFF) % CoverGradients.size]
+
 /**
  * 通用封面：能取到真实专辑图就显示图片，取不到再用 seed 派生一个稳定的渐变色块 + 可选文字。
  * 同一个 seed 每次渲染颜色都一致，不会闪烁。
@@ -50,9 +54,7 @@ fun CoverArt(
   labelSize: TextUnit = 20.sp,
   artUrl: String? = null
 ) {
-  val gradient = remember(seed) {
-    CoverGradients[(seed.hashCode() and 0x7FFFFFFF) % CoverGradients.size]
-  }
+  val gradient = remember(seed) { coverGradientPair(seed) }
   val shape = RoundedCornerShape(cornerRadius)
   val context = LocalContext.current
   // 初值取同步缓存：列表滚动回来时同一张封面能立刻显示，不会先闪一下渐变

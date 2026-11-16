@@ -75,7 +75,6 @@ import com.dlust.ydhl2026.ui.player.lyrics.glyphVisualAt
 import com.dlust.ydhl2026.ui.player.lyrics.rememberLyricPosition
 import com.dlust.ydhl2026.ui.player.lyrics.scatterFontSizeSp
 import com.dlust.ydhl2026.ui.theme.EchoAccent
-import com.dlust.ydhl2026.ui.theme.EchoInk
 import com.dlust.ydhl2026.ui.theme.EchoStageWarm
 import kotlinx.coroutines.delay
 
@@ -96,6 +95,9 @@ fun ScatterLyricStage(
   positionMs: Long,
   durationMs: Long,
   isPlaying: Boolean,
+  backdrop: PlayerBackdrop,
+  seed: String,
+  artUrl: String?,
   onBack: () -> Unit,
   onSeek: (Long) -> Unit,
   modifier: Modifier = Modifier
@@ -154,7 +156,6 @@ fun ScatterLyricStage(
   Box(
     modifier = modifier
       .fillMaxSize()
-      .background(EchoInk)
       .pointerInput(Unit) {
         detectVerticalDragGestures(
           onDragEnd = {
@@ -172,6 +173,13 @@ fun ScatterLyricStage(
         detectTapGestures { wakeControls() }
       }
   ) {
+    // 和播放面板用同一套背景，进出舞台时视觉是连续的
+    PlayerBackdropLayer(
+      backdrop = backdrop,
+      seed = seed,
+      artUrl = artUrl,
+      modifier = Modifier.fillMaxSize()
+    )
     DustField()
     // 暗角：把视觉焦点收到屏幕中央的句子
     Canvas(modifier = Modifier.fillMaxSize()) {
