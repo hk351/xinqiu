@@ -16,6 +16,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -148,7 +149,6 @@ fun HomeScreen(
             },
             currentSongId = playerState.currentSong?.id,
             isPlaying = playerState.isPlaying,
-            isDark = isDark,
             onTrackClick = { song ->
               playerViewModel.onPlaySong(song, state.recentSongs)
               panelOpen = true
@@ -162,7 +162,6 @@ fun HomeScreen(
             },
             currentSongId = playerState.currentSong?.id,
             isPlaying = playerState.isPlaying,
-            isDark = isDark,
             onTrackClick = { song ->
               playerViewModel.onPlaySong(song, state.recentSongs)
               panelOpen = true
@@ -176,7 +175,6 @@ fun HomeScreen(
             },
             currentSongId = playerState.currentSong?.id,
             isPlaying = playerState.isPlaying,
-            isDark = isDark,
             onTrackClick = { song ->
               playerViewModel.onPlaySong(song, state.recentSongs)
               panelOpen = true
@@ -224,7 +222,6 @@ fun HomeScreen(
                   },
                   currentSongId = playerState.currentSong?.id,
                   isPlaying = playerState.isPlaying,
-                  isDark = isDark,
                   onTrackClick = { song ->
                     playerViewModel.onPlaySong(song, state.localSongs)
                     panelOpen = true
@@ -425,7 +422,6 @@ private fun PosterWall(
   entries: List<WallEntry>,
   currentSongId: String?,
   isPlaying: Boolean,
-  isDark: Boolean,
   onTrackClick: (Song) -> Unit,
   onPlaylistClick: (Playlist) -> Unit,
   modifier: Modifier = Modifier
@@ -433,9 +429,10 @@ private fun PosterWall(
   LazyVerticalStaggeredGrid(
     columns = StaggeredGridCells.Fixed(2),
     modifier = modifier.fillMaxSize(),
-    contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 96.dp),
-    verticalItemSpacing = 6.dp,
-    horizontalArrangement = Arrangement.spacedBy(6.dp)
+    // 无缝拼贴：卡片之间不留缝，只在底部给迷你条让位
+    contentPadding = PaddingValues(bottom = 96.dp),
+    verticalItemSpacing = 0.dp,
+    horizontalArrangement = Arrangement.spacedBy(0.dp)
   ) {
     itemsIndexed(items = entries, key = { _, entry -> entry.key }) { index, entry ->
       when (entry) {
@@ -444,14 +441,12 @@ private fun PosterWall(
           song = entry.song,
           playing = entry.song.id == currentSongId,
           isPlaying = isPlaying,
-          isDark = isDark,
           onClick = { onTrackClick(entry.song) }
         )
 
         is WallEntry.Collection -> PlaylistTile(
           index = index,
           playlist = entry.playlist,
-          isDark = isDark,
           onClick = { onPlaylistClick(entry.playlist) }
         )
       }
@@ -459,21 +454,22 @@ private fun PosterWall(
   }
 }
 
-/** 歌曲海报：封面出血 + 左上序号 + 两行文字 */
+/** 歌曲海报：封面出血，歌名与歌手压在封面底部，整张卡片就是一张海报 */
 @Composable
 private fun TrackTile(
   index: Int,
   song: Song,
   playing: Boolean,
   isPlaying: Boolean,
-  isDark: Boolean,
   onClick: () -> Unit,
   modifier: Modifier = Modifier
 ) {
   val interactionSource = remember { MutableInteractionSource() }
   val ratio = TileRatios[index % TileRatios.size]
-  Column(
+  Box(
     modifier = modifier
+      .fillMaxWidth()
+      .aspectRatio(ratio)
       .pressScale(interactionSource, pressedScale = 0.985f)
       .clickable(
         interactionSource = interactionSource,
@@ -481,47 +477,31 @@ private fun TrackTile(
         onClick = onClick
       )
   ) {
-    Box(
-      modifier = Modifier
-        .fillMaxWidth()
-        .aspectRatio(ratio)
-    ) {
-      CoverArt(
-        seed = song.id,
-        label = "",
-        cornerRadius = 3.dp,
-        modifier = Modifier.fillMaxSize(),
-        artUrl = song.albumArtUrl
-      )
-      PosterScrim()
-      NumberBadge(index = index)
-      if (playing) {
-        TilePlayingBars(isPlaying = isPlaying, modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp))
-        Box(
-          modifier = Modifier
-            .fillMaxSize()
-            .border(1.dp, EchoAccent, RoundedCornerShape(3.dp))
-        )
-      }
-    }
-    Spacer(Modifier.height(7.dp))
-    Text(
-      text = song.title,
-      color = if (isDark) EchoTextPrimaryDark else EchoTextPrimary,
-      fontSize = 12.5.sp,
-      fontWeight = FontWeight.SemiBold,
-      maxLines = 1,
-      overflow = TextOverflow.Ellipsis,
-      modifier = Modifier.padding(horizontal = 2.dp)
+    CoverArt(
+      seed = song.id,
+      label = "",
+      cornerRadius = 0.dp,
+      modifier = Modifier.fillMaxSize(),
+      artUrl = song.albumArtUrl
     )
-    Spacer(Modifier.height(3.dp))
-    Text(
-      text = song.album?.takeIf { it.isNotBlank() }?.let { "${song.artist} · $it" } ?: song.artist,
-      color = EchoTextSecondary,
-      fontSize = 10.5.sp,
-      maxLines = 1,
-      overflow = TextOverflow.Ellipsis,
-      modifier = Modifier.padding(horizontal = 2.dp)
+    PosterScrim()
+    NumberBadge(index = index)
+    if (playing) {
+      // 等号条挪到右上，避免和压底的歌手名抢位置
+      TilePlayingBars(
+        isPlaying = isPlaying,
+        modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)
+      )
+      Box(
+        modifier = Modifier
+          .fillMaxSize()
+          .border(1.dp, EchoAccent)
+      )
+    }
+    TileCaption(
+      title = song.title,
+      subtitle = song.album?.takeIf { it.isNotBlank() }?.let { "${song.artist} · $it" }
+        ?: song.artist
     )
   }
 }
@@ -531,14 +511,15 @@ private fun TrackTile(
 private fun PlaylistTile(
   index: Int,
   playlist: Playlist,
-  isDark: Boolean,
   onClick: () -> Unit,
   modifier: Modifier = Modifier
 ) {
   val interactionSource = remember { MutableInteractionSource() }
   val ratio = TileRatios[(index + 2) % TileRatios.size]
-  Column(
+  Box(
     modifier = modifier
+      .fillMaxWidth()
+      .aspectRatio(ratio)
       .pressScale(interactionSource, pressedScale = 0.985f)
       .clickable(
         interactionSource = interactionSource,
@@ -546,39 +527,46 @@ private fun PlaylistTile(
         onClick = onClick
       )
   ) {
-    Box(
-      modifier = Modifier
-        .fillMaxWidth()
-        .aspectRatio(ratio)
-    ) {
-      CoverArt(
-        seed = "playlist-${playlist.id}",
-        label = playlist.name.take(1),
-        cornerRadius = 3.dp,
-        labelSize = 30.sp,
-        modifier = Modifier.fillMaxSize()
-      )
-      PosterScrim()
-      NumberBadge(index = index)
-    }
-    Spacer(Modifier.height(7.dp))
+    CoverArt(
+      seed = "playlist-${playlist.id}",
+      label = playlist.name.take(1),
+      cornerRadius = 0.dp,
+      labelSize = 30.sp,
+      modifier = Modifier.fillMaxSize()
+    )
+    PosterScrim()
+    NumberBadge(index = index)
+    TileCaption(
+      title = playlist.name,
+      subtitle = "歌单 · ${playlist.songCount} 首"
+    )
+  }
+}
+
+/** 压在封面底部的两行文字：歌名在前，歌手/数量用更小更淡的字跟在下面 */
+@Composable
+private fun BoxScope.TileCaption(title: String, subtitle: String) {
+  Column(
+    modifier = Modifier
+      .align(Alignment.BottomStart)
+      .fillMaxWidth()
+      .padding(start = 8.dp, end = 8.dp, bottom = 8.dp)
+  ) {
     Text(
-      text = playlist.name,
-      color = if (isDark) EchoTextPrimaryDark else EchoTextPrimary,
-      fontSize = 12.5.sp,
+      text = title,
+      color = Color.White,
+      fontSize = 13.sp,
       fontWeight = FontWeight.SemiBold,
       maxLines = 1,
-      overflow = TextOverflow.Ellipsis,
-      modifier = Modifier.padding(horizontal = 2.dp)
+      overflow = TextOverflow.Ellipsis
     )
-    Spacer(Modifier.height(3.dp))
+    Spacer(Modifier.height(2.dp))
     Text(
-      text = "歌单 · ${playlist.songCount} 首",
-      color = EchoTextSecondary,
-      fontSize = 10.5.sp,
+      text = subtitle,
+      color = Color.White.copy(alpha = 0.66f),
+      fontSize = 10.sp,
       maxLines = 1,
-      overflow = TextOverflow.Ellipsis,
-      modifier = Modifier.padding(horizontal = 2.dp)
+      overflow = TextOverflow.Ellipsis
     )
   }
 }
@@ -593,7 +581,11 @@ private fun PosterScrim(modifier: Modifier = Modifier) {
       .fillMaxSize()
       .background(
         Brush.verticalGradient(
-          colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.42f)),
+          colors = listOf(
+            Color.Transparent,
+            Color.Black.copy(alpha = 0.10f),
+            Color.Black.copy(alpha = 0.66f)
+          ),
           startY = 0f
         )
       )
