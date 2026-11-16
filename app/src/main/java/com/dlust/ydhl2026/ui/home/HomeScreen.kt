@@ -1,27 +1,18 @@
 package com.dlust.ydhl2026.ui.home
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -32,15 +23,13 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
-import androidx.compose.foundation.lazy.staggeredgrid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -48,10 +37,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -72,8 +61,10 @@ import com.dlust.ydhl2026.ui.components.EmptyState
 import com.dlust.ydhl2026.ui.components.MiniPlayerBar
 import com.dlust.ydhl2026.ui.components.MusicNoteIcon
 import com.dlust.ydhl2026.ui.components.SearchIcon
-import com.dlust.ydhl2026.ui.components.pressScale
 import com.dlust.ydhl2026.ui.formatDuration
+import com.dlust.ydhl2026.ui.home.mosaic.MosaicCanvas
+import com.dlust.ydhl2026.ui.home.mosaic.MosaicEntry
+import com.dlust.ydhl2026.ui.home.mosaic.MosaicScrollState
 import com.dlust.ydhl2026.ui.localMusicStore
 import com.dlust.ydhl2026.ui.musicRepository
 import com.dlust.ydhl2026.ui.player.NowPlayingPanelLayer
@@ -84,22 +75,6 @@ import com.dlust.ydhl2026.ui.theme.EchoBackgroundDark
 import com.dlust.ydhl2026.ui.theme.EchoTextPrimary
 import com.dlust.ydhl2026.ui.theme.EchoTextPrimaryDark
 import com.dlust.ydhl2026.ui.theme.EchoTextSecondary
-
-/** 海报墙的封面高宽比：四种比例循环，制造两列不等高的错落感 */
-private val TileRatios = listOf(0.75f, 1f, 0.8f, 0.87f)
-
-/** 海报墙里的一项：歌曲和歌单混排，点击行为不同，用密封接口区分 */
-private sealed interface WallEntry {
-  val key: String
-
-  data class Track(val song: Song) : WallEntry {
-    override val key: String get() = "track-${song.id}"
-  }
-
-  data class Collection(val playlist: Playlist) : WallEntry {
-    override val key: String get() = "playlist-${playlist.id}"
-  }
-}
 
 /**
  * 首页（Folia 风格海报墙）。
@@ -129,10 +104,124 @@ fun HomeScreen(
 
   val background = if (isDark) EchoBackgroundDark else EchoBackground
 
+  // 每个 Tab 各记一份画布位置，切回来还停在原处
+  val scrollStates = remember { HomeTab.entries.associateWith { MosaicScrollState() } }
+  var canvasDragging by remember { mutableStateOf(false) }
+  // 拖动时头部整体淡出，避免挡住正在看的内容；停手后自动恢复
+  val headerAlpha by animateFloatAsState(
+    targetValue = if (canvasDragging) 0.28f else 1f,
+    animationSpec = tween(220),
+    label = "homeHeaderAlpha"
+  )
+
+  val recommendedEntries = remember(state.recentSongs, state.playlists) {
+    recommendEntries(state.recentSongs, state.playlists)
+  }
+  val recentEntries = remember(state.recentSongs) {
+    state.recentSongs.map { MosaicEntry.Track(it, state.recentSongs) }
+  }
+  val playlistEntries = remember(state.playlists) {
+    state.playlists.map { MosaicEntry.Collection(it) }
+  }
+  val localEntries = remember(state.localSongs) {
+    state.localSongs.map { MosaicEntry.Track(it, state.localSongs) }
+  }
+
   Box(modifier = modifier.fillMaxSize().background(background)) {
+    // 画布铺满整屏（含状态栏与导航栏区域），头部只是浮在上面的一层
+    when (state.selectedTab) {
+      HomeTab.RECOMMEND -> MosaicCanvas(
+        entries = recommendedEntries,
+        currentSongId = playerState.currentSong?.id,
+        isPlaying = playerState.isPlaying,
+        isDark = isDark,
+        scrollState = scrollStates.getValue(HomeTab.RECOMMEND),
+        onTrackClick = { song, queue ->
+          playerViewModel.onPlaySong(song, queue)
+          panelOpen = true
+        },
+        onPlaylistClick = onPlaylistClick,
+        onDragStateChange = { canvasDragging = it },
+        modifier = Modifier.fillMaxSize()
+      )
+
+      HomeTab.RECENT -> MosaicCanvas(
+        entries = recentEntries,
+        currentSongId = playerState.currentSong?.id,
+        isPlaying = playerState.isPlaying,
+        isDark = isDark,
+        scrollState = scrollStates.getValue(HomeTab.RECENT),
+        onTrackClick = { song, queue ->
+          playerViewModel.onPlaySong(song, queue)
+          panelOpen = true
+        },
+        onPlaylistClick = onPlaylistClick,
+        onDragStateChange = { canvasDragging = it },
+        modifier = Modifier.fillMaxSize()
+      )
+
+      HomeTab.PLAYLISTS -> MosaicCanvas(
+        entries = playlistEntries,
+        currentSongId = playerState.currentSong?.id,
+        isPlaying = playerState.isPlaying,
+        isDark = isDark,
+        scrollState = scrollStates.getValue(HomeTab.PLAYLISTS),
+        onTrackClick = { song, queue ->
+          playerViewModel.onPlaySong(song, queue)
+          panelOpen = true
+        },
+        onPlaylistClick = onPlaylistClick,
+        onDragStateChange = { canvasDragging = it },
+        modifier = Modifier.fillMaxSize()
+      )
+
+      HomeTab.LOCAL -> if (state.localSongs.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize().padding(top = 150.dp, bottom = 96.dp)) {
+          EmptyState(
+            title = "还没有本地歌曲",
+            description = "扫描手机里已下载的音频文件，\n它们会直接出现在这面海报墙上。",
+            isDark = isDark,
+            icon = {
+              MusicNoteIcon(
+                modifier = Modifier.size(24.dp),
+                color = EchoAccent.copy(alpha = 0.7f)
+              )
+            },
+            actionLabel = "去扫描",
+            onAction = onOpenLocalMusic
+          )
+        }
+      } else {
+        MosaicCanvas(
+          entries = localEntries,
+          currentSongId = playerState.currentSong?.id,
+          isPlaying = playerState.isPlaying,
+          isDark = isDark,
+          scrollState = scrollStates.getValue(HomeTab.LOCAL),
+          onTrackClick = { song, queue ->
+            playerViewModel.onPlaySong(song, queue)
+            panelOpen = true
+          },
+          onPlaylistClick = onPlaylistClick,
+          onDragStateChange = { canvasDragging = it },
+          modifier = Modifier.fillMaxSize()
+        )
+      }
+    }
+
+    // 浮层头部：上下渐变铺一层底色，保证标题压在封面之上仍然可读
     Column(
       modifier = Modifier
-        .fillMaxSize()
+        .align(Alignment.TopCenter)
+        .fillMaxWidth()
+        .graphicsLayer { alpha = headerAlpha }
+        .background(
+          Brush.verticalGradient(
+            0f to background.copy(alpha = 0.95f),
+            0.7f to background.copy(alpha = 0.72f),
+            1f to Color.Transparent
+          )
+        )
         .statusBarsPadding()
     ) {
       HomeTopBar(isDark = isDark, onSearch = { showSearch = true }, onProfile = onOpenProfile)
@@ -141,97 +230,12 @@ fun HomeScreen(
         isDark = isDark,
         onSelect = { homeViewModel.onAction(HomeAction.SelectTab(it)) }
       )
-      Box(modifier = Modifier.fillMaxSize().weight(1f)) {
-        when (state.selectedTab) {
-          HomeTab.RECOMMEND -> PosterWall(
-            entries = remember(state.recentSongs, state.playlists) {
-              recommendEntries(state.recentSongs, state.playlists)
-            },
-            currentSongId = playerState.currentSong?.id,
-            isPlaying = playerState.isPlaying,
-            onTrackClick = { song ->
-              playerViewModel.onPlaySong(song, state.recentSongs)
-              panelOpen = true
-            },
-            onPlaylistClick = onPlaylistClick
-          )
-
-          HomeTab.RECENT -> PosterWall(
-            entries = remember(state.recentSongs) {
-              state.recentSongs.map { WallEntry.Track(it) }
-            },
-            currentSongId = playerState.currentSong?.id,
-            isPlaying = playerState.isPlaying,
-            onTrackClick = { song ->
-              playerViewModel.onPlaySong(song, state.recentSongs)
-              panelOpen = true
-            },
-            onPlaylistClick = onPlaylistClick
-          )
-
-          HomeTab.PLAYLISTS -> PosterWall(
-            entries = remember(state.playlists) {
-              state.playlists.map { WallEntry.Collection(it) }
-            },
-            currentSongId = playerState.currentSong?.id,
-            isPlaying = playerState.isPlaying,
-            onTrackClick = { song ->
-              playerViewModel.onPlaySong(song, state.recentSongs)
-              panelOpen = true
-            },
-            onPlaylistClick = onPlaylistClick
-          )
-
-          HomeTab.LOCAL -> {
-            if (state.localSongs.isEmpty()) {
-              EmptyState(
-                title = "还没有本地歌曲",
-                description = "扫描手机里已下载的音频文件，\n它们会直接出现在这面海报墙上。",
-                isDark = isDark,
-                icon = {
-                  MusicNoteIcon(
-                    modifier = Modifier.size(24.dp),
-                    color = EchoAccent.copy(alpha = 0.7f)
-                  )
-                },
-                actionLabel = "去扫描",
-                onAction = onOpenLocalMusic
-              )
-            } else {
-              Column(modifier = Modifier.fillMaxSize()) {
-                Row(
-                  modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                  verticalAlignment = Alignment.CenterVertically
-                ) {
-                  Text(
-                    text = "本地 · ${state.localSongs.size} 首",
-                    color = EchoTextSecondary,
-                    fontSize = 11.sp
-                  )
-                  Spacer(Modifier.weight(1f))
-                  Text(
-                    text = "重新扫描",
-                    color = EchoAccent,
-                    fontSize = 11.sp,
-                    modifier = Modifier.clickable(onClick = onOpenLocalMusic)
-                  )
-                }
-                PosterWall(
-                  entries = remember(state.localSongs) {
-                    state.localSongs.map { WallEntry.Track(it) }
-                  },
-                  currentSongId = playerState.currentSong?.id,
-                  isPlaying = playerState.isPlaying,
-                  onTrackClick = { song ->
-                    playerViewModel.onPlaySong(song, state.localSongs)
-                    panelOpen = true
-                  },
-                  onPlaylistClick = onPlaylistClick
-                )
-              }
-            }
-          }
-        }
+      if (state.selectedTab == HomeTab.LOCAL && state.localSongs.isNotEmpty()) {
+        LocalHeaderRow(
+          count = state.localSongs.size,
+          isDark = isDark,
+          onRescan = onOpenLocalMusic
+        )
       }
     }
 
@@ -292,12 +296,12 @@ fun HomeScreen(
 private fun recommendEntries(
   songs: List<Song>,
   playlists: List<Playlist>
-): List<WallEntry> {
-  val result = mutableListOf<WallEntry>()
+): List<MosaicEntry> {
+  val result = mutableListOf<MosaicEntry>()
   val rounds = maxOf(songs.size, playlists.size)
   for (index in 0 until rounds) {
-    songs.getOrNull(index)?.let { result += WallEntry.Track(it) }
-    playlists.getOrNull(index)?.let { result += WallEntry.Collection(it) }
+    songs.getOrNull(index)?.let { result += MosaicEntry.Track(it, songs) }
+    playlists.getOrNull(index)?.let { result += MosaicEntry.Collection(it) }
   }
   return result
 }
@@ -416,235 +420,32 @@ private fun HomeTabRow(
   }
 }
 
-/** 两列瀑布流海报墙，底部留出迷你条的高度 */
+/** 本地页浮在画布上的一行小信息：数量 + 重新扫描 */
 @Composable
-private fun PosterWall(
-  entries: List<WallEntry>,
-  currentSongId: String?,
-  isPlaying: Boolean,
-  onTrackClick: (Song) -> Unit,
-  onPlaylistClick: (Playlist) -> Unit,
+private fun LocalHeaderRow(
+  count: Int,
+  isDark: Boolean,
+  onRescan: () -> Unit,
   modifier: Modifier = Modifier
 ) {
-  LazyVerticalStaggeredGrid(
-    columns = StaggeredGridCells.Fixed(2),
-    modifier = modifier.fillMaxSize(),
-    // 无缝拼贴：卡片之间不留缝，只在底部给迷你条让位
-    contentPadding = PaddingValues(bottom = 96.dp),
-    verticalItemSpacing = 0.dp,
-    horizontalArrangement = Arrangement.spacedBy(0.dp)
-  ) {
-    itemsIndexed(items = entries, key = { _, entry -> entry.key }) { index, entry ->
-      when (entry) {
-        is WallEntry.Track -> TrackTile(
-          index = index,
-          song = entry.song,
-          playing = entry.song.id == currentSongId,
-          isPlaying = isPlaying,
-          onClick = { onTrackClick(entry.song) }
-        )
-
-        is WallEntry.Collection -> PlaylistTile(
-          index = index,
-          playlist = entry.playlist,
-          onClick = { onPlaylistClick(entry.playlist) }
-        )
-      }
-    }
-  }
-}
-
-/** 歌曲海报：封面出血，歌名与歌手压在封面底部，整张卡片就是一张海报 */
-@Composable
-private fun TrackTile(
-  index: Int,
-  song: Song,
-  playing: Boolean,
-  isPlaying: Boolean,
-  onClick: () -> Unit,
-  modifier: Modifier = Modifier
-) {
-  val interactionSource = remember { MutableInteractionSource() }
-  val ratio = TileRatios[index % TileRatios.size]
-  Box(
+  Row(
     modifier = modifier
       .fillMaxWidth()
-      .aspectRatio(ratio)
-      .pressScale(interactionSource, pressedScale = 0.985f)
-      .clickable(
-        interactionSource = interactionSource,
-        indication = LocalIndication.current,
-        onClick = onClick
-      )
-  ) {
-    CoverArt(
-      seed = song.id,
-      label = "",
-      cornerRadius = 0.dp,
-      modifier = Modifier.fillMaxSize(),
-      artUrl = song.albumArtUrl
-    )
-    PosterScrim()
-    NumberBadge(index = index)
-    if (playing) {
-      // 等号条挪到右上，避免和压底的歌手名抢位置
-      TilePlayingBars(
-        isPlaying = isPlaying,
-        modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)
-      )
-      Box(
-        modifier = Modifier
-          .fillMaxSize()
-          .border(1.dp, EchoAccent)
-      )
-    }
-    TileCaption(
-      title = song.title,
-      subtitle = song.album?.takeIf { it.isNotBlank() }?.let { "${song.artist} · $it" }
-        ?: song.artist
-    )
-  }
-}
-
-/** 歌单海报：沿用同一种封面规格，副标题说明歌曲数 */
-@Composable
-private fun PlaylistTile(
-  index: Int,
-  playlist: Playlist,
-  onClick: () -> Unit,
-  modifier: Modifier = Modifier
-) {
-  val interactionSource = remember { MutableInteractionSource() }
-  val ratio = TileRatios[(index + 2) % TileRatios.size]
-  Box(
-    modifier = modifier
-      .fillMaxWidth()
-      .aspectRatio(ratio)
-      .pressScale(interactionSource, pressedScale = 0.985f)
-      .clickable(
-        interactionSource = interactionSource,
-        indication = LocalIndication.current,
-        onClick = onClick
-      )
-  ) {
-    CoverArt(
-      seed = "playlist-${playlist.id}",
-      label = playlist.name.take(1),
-      cornerRadius = 0.dp,
-      labelSize = 30.sp,
-      modifier = Modifier.fillMaxSize()
-    )
-    PosterScrim()
-    NumberBadge(index = index)
-    TileCaption(
-      title = playlist.name,
-      subtitle = "歌单 · ${playlist.songCount} 首"
-    )
-  }
-}
-
-/** 压在封面底部的两行文字：歌名在前，歌手/数量用更小更淡的字跟在下面 */
-@Composable
-private fun BoxScope.TileCaption(title: String, subtitle: String) {
-  Column(
-    modifier = Modifier
-      .align(Alignment.BottomStart)
-      .fillMaxWidth()
-      .padding(start = 8.dp, end = 8.dp, bottom = 8.dp)
+      .padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 8.dp),
+    verticalAlignment = Alignment.CenterVertically
   ) {
     Text(
-      text = title,
-      color = Color.White,
-      fontSize = 13.sp,
-      fontWeight = FontWeight.SemiBold,
-      maxLines = 1,
-      overflow = TextOverflow.Ellipsis
+      text = "本地 · $count 首",
+      color = if (isDark) EchoTextPrimaryDark.copy(alpha = 0.6f) else EchoTextSecondary,
+      fontSize = 11.sp
     )
-    Spacer(Modifier.height(2.dp))
+    Spacer(Modifier.weight(1f))
     Text(
-      text = subtitle,
-      color = Color.White.copy(alpha = 0.66f),
-      fontSize = 10.sp,
-      maxLines = 1,
-      overflow = TextOverflow.Ellipsis
+      text = "重新扫描",
+      color = EchoAccent,
+      fontSize = 11.sp,
+      modifier = Modifier.clickable(onClick = onRescan)
     )
-  }
-}
-
-/**
- * 封面底部压暗：明亮渐变上也能压住白色标题与序号。
- */
-@Composable
-private fun PosterScrim(modifier: Modifier = Modifier) {
-  Box(
-    modifier = modifier
-      .fillMaxSize()
-      .background(
-        Brush.verticalGradient(
-          colors = listOf(
-            Color.Transparent,
-            Color.Black.copy(alpha = 0.10f),
-            Color.Black.copy(alpha = 0.66f)
-          ),
-          startY = 0f
-        )
-      )
-  )
-}
-
-/** 左上角序号徽标：黑底半透明，字号很小，不抢封面 */
-@Composable
-private fun NumberBadge(index: Int, modifier: Modifier = Modifier) {
-  Text(
-    text = (index + 1).toString().padStart(2, '0'),
-    color = Color.White.copy(alpha = 0.8f),
-    fontSize = 9.sp,
-    letterSpacing = 0.6.sp,
-    modifier = modifier
-      .background(Color.Black.copy(alpha = 0.55f))
-      .padding(horizontal = 5.dp, vertical = 3.dp)
-  )
-}
-
-/** 正在播放的封面右下角三根小音量条 */
-@Composable
-private fun TilePlayingBars(
-  isPlaying: Boolean,
-  modifier: Modifier = Modifier
-) {
-  if (!isPlaying) {
-    BarsCanvas(heights = listOf(0.45f, 0.9f, 0.6f), modifier = modifier)
-    return
-  }
-  val transition = rememberInfiniteTransition(label = "tilePlayingBars")
-  val bars = List(3) { index ->
-    transition.animateFloat(
-      initialValue = 0.3f,
-      targetValue = 1f,
-      animationSpec = infiniteRepeatable(
-        animation = tween(durationMillis = 620 + index * 140, easing = LinearEasing),
-        repeatMode = RepeatMode.Reverse
-      ),
-      label = "tileBar$index"
-    )
-  }
-  BarsCanvas(heights = bars.map { it.value }, modifier = modifier)
-}
-
-@Composable
-private fun BarsCanvas(heights: List<Float>, modifier: Modifier = Modifier) {
-  androidx.compose.foundation.Canvas(modifier = modifier.size(width = 11.dp, height = 12.dp)) {
-    val barWidth = size.width * 0.2f
-    val gap = size.width * 0.2f
-    heights.forEachIndexed { index, ratio ->
-      val barHeight = size.height * ratio
-      drawRoundRect(
-        color = EchoAccent,
-        topLeft = Offset(index * (barWidth + gap), size.height - barHeight),
-        size = androidx.compose.ui.geometry.Size(barWidth, barHeight),
-        cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidth / 2, barWidth / 2)
-      )
-    }
   }
 }
 
