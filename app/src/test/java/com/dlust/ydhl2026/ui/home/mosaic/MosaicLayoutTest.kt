@@ -11,21 +11,21 @@ class MosaicLayoutTest {
   private val planeWidthPx = MosaicLayout.planeWidthPx(viewportWidthPx)
 
   @Test
-  fun `平面比屏幕宽 横向拖动才有余量`() {
-    assertTrue(planeWidthPx > viewportWidthPx)
+  fun `平面比屏幕宽很多 横向有足够拖动余量`() {
+    assertTrue(planeWidthPx >= viewportWidthPx * 2)
   }
 
   @Test
   fun `同一输入排版完全确定`() {
     assertEquals(
-      MosaicLayout.tiles(planeWidthPx, 6000),
-      MosaicLayout.tiles(planeWidthPx, 6000)
+      MosaicLayout.tiles(viewportWidthPx, 6000),
+      MosaicLayout.tiles(viewportWidthPx, 6000)
     )
   }
 
   @Test
   fun `卡片之间互不重叠`() {
-    val tiles = MosaicLayout.tiles(planeWidthPx, 6000)
+    val tiles = MosaicLayout.tiles(viewportWidthPx, 6000)
     assertTrue(tiles.size > 20)
     for (i in tiles.indices) {
       for (j in i + 1 until tiles.size) {
@@ -40,7 +40,7 @@ class MosaicLayoutTest {
 
   @Test
   fun `卡片不越出平面左右边界且尺寸为正`() {
-    MosaicLayout.tiles(planeWidthPx, 6000).forEach { tile ->
+    MosaicLayout.tiles(viewportWidthPx, 6000).forEach { tile ->
       assertTrue(tile.width > 0 && tile.height > 0)
       assertTrue("${tile.key} 左边越界", tile.x >= 0)
       assertTrue("${tile.key} 右边越界", tile.x + tile.width <= planeWidthPx)
@@ -48,27 +48,45 @@ class MosaicLayoutTest {
   }
 
   @Test
-  fun `整体向下连续 没有成片的空洞`() {
-    val tiles = MosaicLayout.tiles(planeWidthPx, 6000)
-    val sorted = tiles.sortedBy { it.y }
-    var coveredUntil = sorted.first().y
-    sorted.forEach { tile ->
-      // 单个列内两张卡之间只有一条缝，再大就说明排版漏了格子
-      assertTrue("在 y=${tile.y} 处出现空洞", tile.y <= coveredUntil + 8)
-      coveredUntil = maxOf(coveredUntil, tile.y + tile.height)
+  fun `卡片足够大 最窄的卡也不低于四分之一屏`() {
+    val tiles = MosaicLayout.tiles(viewportWidthPx, 3000)
+    val narrowest = tiles.filter { it.span == 1 }.minOf { it.width }
+    assertTrue("最窄的卡只有 ${narrowest}px", narrowest >= viewportWidthPx * 0.26f)
+  }
+
+  @Test
+  fun `每一列自己向下连续 没有空洞`() {
+    // 按卡片中心线往下找下一张：列缝只有几像素，按像素条带采样会踩进缝里误报
+    val tiles = MosaicLayout.tiles(viewportWidthPx, 6000)
+    tiles.forEach { tile ->
+      val centerX = tile.x + tile.width / 2
+      val next = tiles
+        .filter { centerX >= it.x && centerX < it.x + it.width && it.y >= tile.y + tile.height }
+        .minByOrNull { it.y }
+        ?: return@forEach
+      val space = next.y - (tile.y + tile.height)
+      assertTrue("${tile.key} 下方空了 ${space}px", space <= 12)
     }
-    assertEquals(sorted.maxOf { it.y + it.height }, coveredUntil)
+  }
+
+  @Test
+  fun `各列从平面上方伸入 顶部起点参差不齐`() {
+    val tiles = MosaicLayout.tiles(viewportWidthPx, 3000)
+    val tops = tiles.filter { it.y <= 0 }.map { it.y }.distinct()
+    // 若所有列都从 0 起砌，顶端只有一条直线；错开后应有多个不同的起点
+    assertTrue("顶部起点只有 ${tops.size} 种", tops.size >= 3)
+    assertTrue("所有列都从平面内开始，顶部会露出页面底色", tiles.any { it.y < 0 })
   }
 
   @Test
   fun `序号从零开始依次递增`() {
-    val tiles = MosaicLayout.tiles(planeWidthPx, 3000)
+    val tiles = MosaicLayout.tiles(viewportWidthPx, 3000)
     assertEquals(tiles.indices.map { it }, tiles.map { it.globalIndex })
   }
 
   @Test
   fun `偶尔出现跨两列的宽卡 其余都是单列`() {
-    val tiles = MosaicLayout.tiles(planeWidthPx, 12000)
+    val tiles = MosaicLayout.tiles(viewportWidthPx, 12000)
     assertTrue(tiles.any { it.span == 2 })
     assertTrue(tiles.all { it.span == 1 || it.span == 2 })
   }
@@ -99,8 +117,8 @@ class MosaicLayoutTest {
 
   @Test
   fun `视口越往下 需要生成的卡越多 且前面的卡保持不变`() {
-    val shallow = MosaicLayout.tilesForViewport(planeWidthPx, 0f, 2400)
-    val deep = MosaicLayout.tilesForViewport(planeWidthPx, 8000f, 2400)
+    val shallow = MosaicLayout.tilesForViewport(viewportWidthPx, 0f, 2400)
+    val deep = MosaicLayout.tilesForViewport(viewportWidthPx, 8000f, 2400)
     assertTrue(deep.size > shallow.size)
     assertEquals(shallow.first(), deep.first())
   }

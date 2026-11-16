@@ -127,7 +127,7 @@ fun MosaicCanvas(
     var tiles by remember(planeWidthPx, viewportHeightPx, scrollState) {
       mutableStateOf(
         MosaicLayout.tilesForViewport(
-          planeWidthPx = planeWidthPx,
+          viewportWidthPx = viewportWidthPx,
           scrollYPx = -scrollState.peek().y,
           viewportHeightPx = viewportHeightPx
         )
@@ -141,7 +141,7 @@ fun MosaicCanvas(
         .distinctUntilChanged()
         .collect {
           tiles = MosaicLayout.tilesForViewport(
-            planeWidthPx = planeWidthPx,
+            viewportWidthPx = viewportWidthPx,
             scrollYPx = -scrollState.current.y,
             viewportHeightPx = viewportHeightPx
           )
@@ -227,7 +227,7 @@ fun MosaicCanvas(
             isDark = isDark,
             ordinal = slot.globalIndex,
             // 字号跟着卡片实际宽度走，宽卡才有资格用大字，窄卡也不会溢出
-            titleSp = (slot.width / density.density * 0.085f).coerceIn(11.5f, 20f),
+            titleSp = (slot.width / density.density * 0.098f).coerceIn(13f, 26f),
             onClick = {
               when (entry) {
                 is MosaicEntry.Track -> onTrackClick(entry.song, entry.queue)

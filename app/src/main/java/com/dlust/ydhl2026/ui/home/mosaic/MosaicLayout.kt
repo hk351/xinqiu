@@ -1,6 +1,5 @@
 package com.dlust.ydhl2026.ui.home.mosaic
 
-import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -37,14 +36,29 @@ data class TileSlot(
 )
 
 /**
- * 五条宽度不等的列。
- * 每张卡直接落在某一条列里，偶尔跨两列；各列独立向下排，横缝和竖缝都不会贯通，
- * 这是拼贴感和普通网格最大的区别。
+ * 六条宽度不等的列，单位是「屏幕宽的倍数」。
+ *
+ * 用屏幕宽而不是平面宽做基准，是为了让卡片大小和平面宽度解耦：
+ * 想把平面拉长（横向能滑更远）时只要加列，卡片不会被一起缩小。
  */
-private val LaneWidths = floatArrayOf(0.24f, 0.20f, 0.22f, 0.18f, 0.16f)
+private val LaneWidths = floatArrayOf(
+  0.42f, 0.30f, 0.38f, 0.28f, 0.36f, 0.32f, 0.34f, 0.30f, 0.40f, 0.28f
+)
 
-/** 卡片高度 = 宽度 × 这组比例，循环取用，让高矮有节奏地变化 */
-private val HeightRatios = floatArrayOf(1.34f, 1.05f, 1.20f, 0.95f, 1.10f, 1.28f)
+/**
+ * 各列从不同的高度起砌（屏幕宽倍数）。
+ * 参差主要来自这里：如果所有列都从 0 开始，再随机的高度比例也会在第一屏排出横向对齐的"楼层线"。
+ */
+private val LaneStarts = floatArrayOf(
+  0f, 0.30f, 0.10f, 0.44f, 0.18f, 0.36f, 0.06f, 0.40f, 0.14f, 0.28f
+)
+
+/** 卡片高度 = 宽度 × 这组比例，跨度拉到 0.72~1.85，横条和超长竖条交替出现 */
+private val HeightRatios =
+  floatArrayOf(1.85f, 0.72f, 1.42f, 1.06f, 1.68f, 0.88f, 1.24f, 1.52f, 0.78f, 1.34f)
+
+/** 跨列卡的合宽上限：超过一屏就装不下，宁可不跨 */
+private const val MaxSpanWidth = 0.96f
 
 /**
  * 拼贴平面的几何排版。
@@ -54,14 +68,12 @@ private val HeightRatios = floatArrayOf(1.34f, 1.05f, 1.20f, 0.95f, 1.10f, 1.28f
  */
 object MosaicLayout {
 
-  /** 平面比屏幕宽，横向拖动才有内容可看；1.25 倍大约多露出四分之一画面 */
-  const val PlaneWidthFactor = 1.25f
-
   /** 竖向兜底：防止极端拖动把整面墙无限算进内存 */
   private const val MaxTiles = 6000
 
+  /** 平面总宽 = 各列宽之和，约 2.76 屏，横向能滑近两屏远 */
   fun planeWidthPx(viewportWidthPx: Int): Int =
-    (viewportWidthPx * PlaneWidthFactor).roundToInt().coerceAtLeast(viewportWidthPx)
+    (viewportWidthPx * LaneWidths.sum()).roundToInt()
 
   /**
    * 该用哪种卡片样式。
@@ -84,10 +96,10 @@ object MosaicLayout {
    * 从平面顶部开始砌，直到最矮的一列也超过 [minHeightPx]。
    * 已生成的卡片坐标只依赖序号，所以滚动后再生成时前面的结果完全一致，画面不会跳。
    */
-  fun tiles(planeWidthPx: Int, minHeightPx: Int): List<TileSlot> {
-    if (planeWidthPx <= 0 || minHeightPx <= 0) return emptyList()
-    // 细缝按平面宽度取：屏幕上大约 1~2dp，让纯色块之间既有边界感又保持"一整面"
-    val gap = max(2, (planeWidthPx * 0.0021f).roundToInt())
+  fun tiles(viewportWidthPx: Int, minHeightPx: Int): List<TileSlot> {
+    if (viewportWidthPx <= 0 || minHeightPx <= 0) return emptyList()
+    // 细缝按屏幕宽取：大约 1dp，色块之间有边界感又仍像"一整面"
+    val gap = max(3, (viewportWidthPx * 0.0028f).roundToInt())
     val half = gap / 2
     val laneCount = LaneWidths.size
 
@@ -98,9 +110,12 @@ object MosaicLayout {
       acc += LaneWidths[i]
     }
 
-    val cursor = IntArray(laneCount)
+    // 起始高度按列往上错开：卡片从平面上边缘之上伸进来，顶部既没有横平竖直的起点，
+    // 也不会在浅色模式下露出一块空白的页面底色
+    val cursor = IntArray(laneCount) { -(LaneStarts[it] * viewportWidthPx).roundToInt() }
     val result = ArrayList<TileSlot>(256)
     var index = 0
+    var lastSpan = -10
     while (cursor.min() < minHeightPx && result.size < MaxTiles) {
       // 每次填当前最矮的一列；平局时按序号轮换，避免总是从最左列开始
       var lane = index % laneCount
@@ -108,39 +123,48 @@ object MosaicLayout {
         if (cursor[i] < cursor[lane]) lane = i
       }
 
-      // 每隔几张尝试跨两列：只有两列底部齐平、且合起来不会宽到占满视野时才跨
+      // 相邻两列底部齐平时跨两列，但至少隔两张才跨一次，免得宽卡连成横条
+      var startLane = lane
       var span = 1
-      if (
-        index % 8 == 3 &&
-        lane + 1 < laneCount &&
-        cursor[lane] == cursor[lane + 1] &&
-        LaneWidths[lane] + LaneWidths[lane + 1] <= 0.42f
-      ) {
-        span = 2
+      if (index - lastSpan >= 2) {
+        // 平局时最矮列可能是左边那列也可能是右边那列，两种拼法都要试
+        for (start in intArrayOf(lane, lane - 1)) {
+          if (start < 0 || start + 1 >= laneCount) continue
+          if (
+            cursor[start] == cursor[start + 1] &&
+            LaneWidths[start] + LaneWidths[start + 1] <= MaxSpanWidth
+          ) {
+            startLane = start
+            span = 2
+            lastSpan = index
+            break
+          }
+        }
       }
 
-      val xRatio = laneStarts[lane]
+      val xRatio = laneStarts[startLane]
       var widthRatio = 0f
-      repeat(span) { widthRatio += LaneWidths[lane + it] }
+      repeat(span) { widthRatio += LaneWidths[startLane + it] }
 
-      val left = (xRatio * planeWidthPx).roundToInt() + half
-      val right = ((xRatio + widthRatio) * planeWidthPx).roundToInt() - (gap - half)
+      val left = (xRatio * viewportWidthPx).roundToInt() + half
+      val right = ((xRatio + widthRatio) * viewportWidthPx).roundToInt() - (gap - half)
       val width = right - left
       if (width <= 0) {
         index++
         continue
       }
 
-      val top = cursor[lane]
-      var height = (width * HeightRatios[index % HeightRatios.size]).roundToInt()
+      val top = cursor[startLane]
+      var height = (width * HeightRatios[(index + startLane * 3) % HeightRatios.size]).roundToInt()
 
-      // 和相邻列底部接近时，把高度微调过去对齐，下一张就有机会跨列
-      for (neighbor in intArrayOf(lane - 1, lane + 1)) {
+      // 和相邻列底部接近时，把高度拉长过去对齐（减掉缝宽，让下一张的起点正好落在同一高度），
+      // 下一张就有机会跨列
+      for (neighbor in intArrayOf(startLane - 1, startLane + span)) {
         if (neighbor < 0 || neighbor >= laneCount) continue
         val target = cursor[neighbor]
         val bottom = top + height
-        if (target > bottom && target - bottom <= (width * 0.35f).roundToInt()) {
-          height = target - top
+        if (target > bottom && target - bottom <= (width * 0.55f).roundToInt()) {
+          height = target - top - gap
           break
         }
       }
@@ -155,7 +179,7 @@ object MosaicLayout {
         height = height
       )
       val bottom = top + height + gap
-      for (i in lane until lane + span) cursor[i] = bottom
+      for (i in startLane until startLane + span) cursor[i] = bottom
       index++
     }
     return result
@@ -166,11 +190,11 @@ object MosaicLayout {
    * 视口向下移动时只需追加后面的卡，前面的几何不变，所以画面不会跳动。
    */
   fun tilesForViewport(
-    planeWidthPx: Int,
+    viewportWidthPx: Int,
     scrollYPx: Float,
     viewportHeightPx: Int
   ): List<TileSlot> {
     val targetBottom = (scrollYPx + viewportHeightPx * 2f).roundToInt()
-    return tiles(planeWidthPx, targetBottom)
+    return tiles(viewportWidthPx, targetBottom)
   }
 }
