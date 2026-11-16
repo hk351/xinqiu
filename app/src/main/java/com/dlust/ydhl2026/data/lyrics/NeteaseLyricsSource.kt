@@ -24,7 +24,7 @@ class NeteaseLyricsSource(
   override suspend fun find(song: Song): List<LyricLine> = withContext(ioDispatcher) {
     val keyword = buildSearchKeyword(song.title, song.artist) ?: return@withContext emptyList()
     val candidates = runCatching { search(keyword) }.getOrDefault(emptyList())
-    val best = pickBestMatch(candidates, song.title, song.durationMs)
+    val best = pickBestMatch(candidates, song.title, song.artist, song.durationMs)
       ?: return@withContext emptyList()
     runCatching { fetchLyric(best.id) }.getOrDefault(emptyList())
   }
@@ -56,7 +56,8 @@ class NeteaseLyricsSource(
     val raw = JSONObject(json).optJSONObject("lrc")?.optString("lyric").orEmpty()
     // 纯音乐没有可展示的歌词，直接当作没找到
     if (raw.isBlank() || raw.contains(PURE_MUSIC_MARK)) return emptyList()
-    return LrcParser.parse(raw)
+    // 接口返回的歌词开头常带「作词：xxx / 编曲：xxx」，这些不该出现在舞台上
+    return dropCreditLines(LrcParser.parse(raw))
   }
 
   private fun getJson(url: String): String {
