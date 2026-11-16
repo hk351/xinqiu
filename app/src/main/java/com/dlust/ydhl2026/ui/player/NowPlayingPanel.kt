@@ -40,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,8 +54,10 @@ import com.dlust.ydhl2026.ui.components.PauseIcon
 import com.dlust.ydhl2026.ui.components.PlayIcon
 import com.dlust.ydhl2026.ui.components.QueueListIcon
 import com.dlust.ydhl2026.ui.components.ShareIcon
+import com.dlust.ydhl2026.ui.components.SeekBar
 import com.dlust.ydhl2026.ui.components.SkipNextIcon
 import com.dlust.ydhl2026.ui.components.pressScale
+import com.dlust.ydhl2026.ui.components.progressToMs
 import com.dlust.ydhl2026.ui.formatDuration
 import com.dlust.ydhl2026.ui.theme.EchoAccent
 import kotlinx.coroutines.delay
@@ -132,6 +135,7 @@ fun NowPlayingPanelLayer(
         queueSize = state.queue.size,
         onPlayPause = playerViewModel::onPlayPause,
         onNext = playerViewModel::onNext,
+        onSeek = playerViewModel::onSeekTo,
         onOpenStage = { showStage = true }
       )
     }
@@ -147,7 +151,8 @@ fun NowPlayingPanelLayer(
         positionMs = state.positionMs,
         durationMs = if (state.durationMs > 0L) state.durationMs else song.durationMs,
         isPlaying = state.isPlaying,
-        onBack = { showStage = false }
+        onBack = { showStage = false },
+        onSeek = playerViewModel::onSeekTo
       )
     }
   }
@@ -163,6 +168,7 @@ private fun PlayerPanel(
   queueSize: Int,
   onPlayPause: () -> Unit,
   onNext: () -> Unit,
+  onSeek: (Long) -> Unit,
   onOpenStage: () -> Unit,
   modifier: Modifier = Modifier
 ) {
@@ -305,21 +311,15 @@ private fun PlayerPanel(
           }
         }
 
-        Spacer(Modifier.height(14.dp))
-        Box(
-          modifier = Modifier
-            .fillMaxWidth()
-            .height(2.dp)
-            .clip(RoundedCornerShape(1.dp))
-            .background(Color.White.copy(alpha = 0.16f))
-        ) {
-          Box(
-            modifier = Modifier
-              .fillMaxWidth(progress)
-              .height(2.dp)
-              .background(EchoAccent)
-          )
-        }
+        Spacer(Modifier.height(6.dp))
+        SeekBar(
+          progress = progress,
+          onSeek = { fraction -> onSeek(progressToMs(fraction, durationMs)) },
+          trackColor = Color.White.copy(alpha = 0.16f),
+          progressBrush = SolidColor(EchoAccent),
+          trackHeight = 2.dp,
+          touchHeight = 24.dp
+        )
       }
     }
   }

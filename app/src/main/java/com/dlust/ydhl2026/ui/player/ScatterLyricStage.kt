@@ -10,6 +10,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -62,7 +64,9 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.dlust.ydhl2026.data.model.LyricLine
 import com.dlust.ydhl2026.ui.components.ArrowBackIcon
+import com.dlust.ydhl2026.ui.components.SeekBar
 import com.dlust.ydhl2026.ui.components.SparkleIcon
+import com.dlust.ydhl2026.ui.components.progressToMs
 import com.dlust.ydhl2026.ui.formatDuration
 import com.dlust.ydhl2026.ui.player.lyrics.GlyphPhase
 import com.dlust.ydhl2026.ui.player.lyrics.activeLyricIndex
@@ -93,6 +97,7 @@ fun ScatterLyricStage(
   durationMs: Long,
   isPlaying: Boolean,
   onBack: () -> Unit,
+  onSeek: (Long) -> Unit,
   modifier: Modifier = Modifier
 ) {
   val smoothPosition = rememberLyricPosition(positionMs = positionMs, isPlaying = isPlaying)
@@ -114,11 +119,13 @@ fun ScatterLyricStage(
   var controlsTick by remember { mutableIntStateOf(0) }
   var pillVisible by remember { mutableStateOf(true) }
   var dragged by remember { mutableFloatStateOf(0f) }
+  // 拖动进度条时的临时位置：仅用于渲染和显示，松手才真正 seek
+  var previewFraction by remember { mutableStateOf<Float?>(null) }
   val swipeThreshold = with(LocalDensity.current) { 90.dp.toPx() }
 
-  // 每次点屏都重置自动隐藏的计时
-  LaunchedEffect(controlsTick) {
-    if (controlsVisible) {
+  // 每次点屏都重置自动隐藏的计时；正在拖动进度条时不收控件
+  LaunchedEffect(controlsTick, previewFraction != null) {
+    if (controlsVisible && previewFraction == null) {
       delay(3200)
       controlsVisible = false
     }
@@ -242,9 +249,19 @@ fun ScatterLyricStage(
     StageProgress(
       positionMs = smoothPosition,
       durationMs = durationMs,
+      previewFraction = previewFraction,
+      onSeek = onSeek,
+      onPreview = { previewFraction = it },
       modifier = Modifier
         .align(Alignment.BottomCenter)
         .fillMaxWidth()
+        // 控件隐藏时进度条也看不见，按下去先把控件唤回来，免得盲拖
+        .pointerInput(Unit) {
+          awaitEachGesture {
+            awaitFirstDown(requireUnconsumed = false)
+            wakeControls()
+          }
+        }
         .graphicsLayer { alpha = controlsAlpha }
     )
   }
@@ -307,11 +324,14 @@ private fun ScatterLine(
   }
 }
 
-/** 底部：时间 + 细进度线，颜色从品牌蓝过渡到暖橙 */
+/** 底部：时间 + 可拖动进度线，颜色从品牌蓝过渡到暖橙 */
 @Composable
 private fun StageProgress(
   positionMs: Long,
   durationMs: Long,
+  previewFraction: Float?,
+  onSeek: (Long) -> Unit,
+  onPreview: (Float?) -> Unit,
   modifier: Modifier = Modifier
 ) {
   val fraction = if (durationMs > 0L) {
@@ -319,6 +339,8 @@ private fun StageProgress(
   } else {
     0f
   }
+  // 拖动时左边的时间跟着手指走，松手才回到真实播放位置
+  val shownMs = previewFraction?.let { progressToMs(it, durationMs) } ?: positionMs
   Column(
     modifier = modifier
       .navigationBarsPadding()
@@ -326,7 +348,7 @@ private fun StageProgress(
   ) {
     Row(modifier = Modifier.fillMaxWidth()) {
       Text(
-        text = formatDuration(positionMs),
+        text = formatDuration(shownMs),
         color = Color.White.copy(alpha = 0.4f),
         fontSize = 10.sp,
         letterSpacing = 0.5.sp
@@ -340,20 +362,15 @@ private fun StageProgress(
       )
     }
     Spacer(Modifier.height(8.dp))
-    Box(
-      modifier = Modifier
-        .fillMaxWidth()
-        .height(2.dp)
-        .clip(RoundedCornerShape(1.dp))
-        .background(Color.White.copy(alpha = 0.14f))
-    ) {
-      Box(
-        modifier = Modifier
-          .fillMaxWidth(fraction)
-          .height(2.dp)
-          .background(Brush.horizontalGradient(listOf(EchoAccent, EchoStageWarm)))
-      )
-    }
+    SeekBar(
+      progress = fraction,
+      onSeek = { ratio -> onSeek(progressToMs(ratio, durationMs)) },
+      trackColor = Color.White.copy(alpha = 0.14f),
+      progressBrush = Brush.horizontalGradient(listOf(EchoAccent, EchoStageWarm)),
+      trackHeight = 2.dp,
+      touchHeight = 24.dp,
+      onPreview = onPreview
+    )
   }
 }
 
