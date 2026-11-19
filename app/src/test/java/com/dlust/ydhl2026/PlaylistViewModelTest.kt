@@ -1,5 +1,6 @@
 package com.dlust.ydhl2026
 
+import com.dlust.ydhl2026.data.local.playlist.PlaylistStore
 import com.dlust.ydhl2026.data.model.ChartTrack
 import com.dlust.ydhl2026.data.model.Playlist
 import com.dlust.ydhl2026.data.model.Song
@@ -36,10 +37,11 @@ class PlaylistViewModelTest {
   }
 
   private val repository = FakeRepository()
+  private val store = FakePlaylistStore()
 
   @Test
   fun `加载歌单时同时拿到歌单名与歌曲列表`() {
-    val viewModel = PlaylistViewModel(playlistId = 1L, repository = repository)
+    val viewModel = PlaylistViewModel(playlistId = 1L, repository = repository, store = store)
     val state = viewModel.uiState.value
 
     assertEquals("热歌榜", state.playlist?.name)
@@ -49,7 +51,7 @@ class PlaylistViewModelTest {
 
   @Test
   fun `拖拽排序把歌曲向后移动两行`() {
-    val viewModel = PlaylistViewModel(playlistId = 1L, repository = repository)
+    val viewModel = PlaylistViewModel(playlistId = 1L, repository = repository, store = store)
 
     viewModel.moveSongBy("ncm-7", 2)
 
@@ -61,7 +63,7 @@ class PlaylistViewModelTest {
 
   @Test
   fun `拖拽越界时钳制在列表两端`() {
-    val viewModel = PlaylistViewModel(playlistId = 1L, repository = repository)
+    val viewModel = PlaylistViewModel(playlistId = 1L, repository = repository, store = store)
 
     viewModel.moveSongBy("ncm-7", -3)
     viewModel.moveSongBy("ncm-8", 9)
@@ -74,28 +76,55 @@ class PlaylistViewModelTest {
 
   @Test
   fun `滑动删除后可以从原位置撤销`() {
-    val viewModel = PlaylistViewModel(playlistId = 1L, repository = repository)
+    val viewModel = PlaylistViewModel(playlistId = 1L, repository = repository, store = store)
 
     viewModel.removeSong("ncm-4")
     assertEquals(
       listOf("ncm-7", "ncm-8", "ncm-9"),
       viewModel.uiState.value.songs.map { it.id }
     )
+    assertEquals(listOf("ncm-4"), store.removed)
 
     viewModel.undoRemove()
     assertEquals(
       listOf("ncm-4", "ncm-7", "ncm-8", "ncm-9"),
       viewModel.uiState.value.songs.map { it.id }
     )
+    assertEquals("ncm-4", store.restoredSongId)
+    assertEquals(
+      listOf("ncm-4", "ncm-7", "ncm-8", "ncm-9"),
+      store.restoredOrder
+    )
   }
 
   @Test
   fun `删除不存在的歌曲不会改变列表`() {
-    val viewModel = PlaylistViewModel(playlistId = 1L, repository = repository)
+    val viewModel = PlaylistViewModel(playlistId = 1L, repository = repository, store = store)
 
     viewModel.removeSong("ncm-99")
 
     assertEquals(4, viewModel.uiState.value.songs.size)
+    assertEquals(emptyList<String>(), store.removed)
+  }
+
+  /** 假存储：记录写库调用，验证 ViewModel 会把删除/撤销/排序同步到本地 */
+  private class FakePlaylistStore : PlaylistStore {
+    val removed = mutableListOf<String>()
+    var restoredSongId: String? = null
+    var restoredOrder: List<String> = emptyList()
+
+    override suspend fun loadChart(playlist: Playlist, songs: List<Song>): List<Song> = songs
+
+    override suspend fun removeSong(playlistId: Long, songId: String) {
+      removed += songId
+    }
+
+    override suspend fun restoreSong(playlistId: Long, songId: String, order: List<String>) {
+      restoredSongId = songId
+      restoredOrder = order
+    }
+
+    override suspend fun saveOrder(playlistId: Long, songIds: List<String>) = Unit
   }
 
   /** 假的仓库：固定一份榜单，不触网 */

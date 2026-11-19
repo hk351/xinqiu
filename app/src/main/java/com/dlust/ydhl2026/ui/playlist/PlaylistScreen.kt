@@ -96,6 +96,7 @@ import com.dlust.ydhl2026.ui.components.ShuffleIcon
 import com.dlust.ydhl2026.ui.components.TrashIcon
 import com.dlust.ydhl2026.ui.formatDuration
 import com.dlust.ydhl2026.ui.musicRepository
+import com.dlust.ydhl2026.ui.playlistStore
 import com.dlust.ydhl2026.ui.player.PlayerViewModel
 import com.dlust.ydhl2026.ui.theme.EchoAccent
 import com.dlust.ydhl2026.ui.theme.EchoBackground
@@ -133,8 +134,9 @@ fun PlaylistScreen(
 ) {
   val context = LocalContext.current
   val repository = remember { context.musicRepository() }
+  val playlistStore = remember { context.playlistStore() }
   val viewModel: PlaylistViewModel =
-    viewModel(factory = PlaylistViewModelFactory(repository, playlistId))
+    viewModel(factory = PlaylistViewModelFactory(repository, playlistStore, playlistId))
   val state by viewModel.uiState.collectAsStateWithLifecycle()
   val playerState by playerViewModel.uiState.collectAsStateWithLifecycle()
   // 播放进度每 200ms 变化一次，这里只派生真正要用到的三个字段，

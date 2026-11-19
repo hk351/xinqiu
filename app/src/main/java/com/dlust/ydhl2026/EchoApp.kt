@@ -8,6 +8,9 @@ import com.dlust.ydhl2026.data.local.LyricsFolderStore
 import com.dlust.ydhl2026.data.local.MediaStoreLocalMusicSource
 import com.dlust.ydhl2026.data.local.PlayHistoryStore
 import com.dlust.ydhl2026.data.local.SafLrcLyricsSource
+import com.dlust.ydhl2026.data.local.playlist.PlaylistDatabase
+import com.dlust.ydhl2026.data.local.playlist.PlaylistStore
+import com.dlust.ydhl2026.data.local.playlist.RoomPlaylistStore
 import com.dlust.ydhl2026.data.lyrics.FileLyricsCache
 import com.dlust.ydhl2026.data.lyrics.NeteaseLyricsSource
 import com.dlust.ydhl2026.data.lyrics.OnlineLyricsSource
@@ -60,6 +63,12 @@ class EchoApp : Application() {
 
   /** 最近播放记录，首页「最近」Tab 与播放器共同读写 */
   val playHistoryStore by lazy { PlayHistoryStore(this) }
+
+  /** 本地 SQLite 库：懒加载，第一次进歌单页才创建 echo.db */
+  private val playlistDatabase by lazy { PlaylistDatabase.build(this) }
+
+  /** 歌单的删除/排序持久化，收藏与自建歌单后续复用同一套表 */
+  val playlistStore: PlaylistStore by lazy { RoomPlaylistStore(playlistDatabase) }
 
   override fun onCreate() {
     super.onCreate()
