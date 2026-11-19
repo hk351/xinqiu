@@ -45,7 +45,9 @@ fun EmptyState(
   modifier: Modifier = Modifier,
   icon: @Composable () -> Unit = {},
   actionLabel: String? = null,
-  onAction: (() -> Unit)? = null
+  onAction: (() -> Unit)? = null,
+  /** 按钮描边与文字的颜色；首页会传系统主题色，其它页面沿用品牌蓝 */
+  accent: Color = EchoAccent
 ) {
   Column(
     modifier = modifier
@@ -89,8 +91,8 @@ fun EmptyState(
         modifier = Modifier
           .height(34.dp)
           .clip(RoundedCornerShape(17.dp))
-          .background(EchoAccent.copy(alpha = if (isDark) 0.12f else 0.08f))
-          .border(1.dp, EchoAccent.copy(alpha = 0.45f), RoundedCornerShape(17.dp))
+          .background(accent.copy(alpha = if (isDark) 0.12f else 0.08f))
+          .border(1.dp, accent.copy(alpha = 0.45f), RoundedCornerShape(17.dp))
           .pressScale(interactionSource, pressedScale = 0.95f)
           .clickable(
             interactionSource = interactionSource,
@@ -102,7 +104,7 @@ fun EmptyState(
       ) {
         Text(
           text = actionLabel,
-          color = EchoAccent,
+          color = accent,
           fontSize = 12.5.sp,
           fontWeight = FontWeight.SemiBold
         )

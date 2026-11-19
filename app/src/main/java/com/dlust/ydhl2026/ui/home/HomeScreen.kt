@@ -74,9 +74,9 @@ import com.dlust.ydhl2026.ui.localMusicStore
 import com.dlust.ydhl2026.ui.musicRepository
 import com.dlust.ydhl2026.ui.player.NowPlayingPanelLayer
 import com.dlust.ydhl2026.ui.player.PlayerViewModel
-import com.dlust.ydhl2026.ui.theme.EchoAccent
 import com.dlust.ydhl2026.ui.theme.EchoBackground
 import com.dlust.ydhl2026.ui.theme.EchoBackgroundDark
+import com.dlust.ydhl2026.ui.theme.echoAccentColor
 import com.dlust.ydhl2026.ui.theme.EchoTextPrimary
 import com.dlust.ydhl2026.ui.theme.EchoTextPrimaryDark
 import com.dlust.ydhl2026.ui.theme.EchoTextSecondary
@@ -113,6 +113,8 @@ fun HomeScreen(
     playerViewModel.uiState.map { it.notice }.distinctUntilChanged()
   }.collectAsStateWithLifecycle(initialValue = null)
   val isDark = isSystemInDarkTheme()
+  // Android 12+ 跟随系统壁纸取色，低版本仍是品牌蓝
+  val accent = echoAccentColor()
 
   var panelOpen by rememberSaveable { mutableStateOf(false) }
   var showSearch by rememberSaveable { mutableStateOf(false) }
@@ -185,11 +187,12 @@ fun HomeScreen(
             icon = {
               MusicNoteIcon(
                 modifier = Modifier.size(24.dp),
-                color = EchoAccent.copy(alpha = 0.7f)
+                color = accent.copy(alpha = 0.7f)
               )
             },
             actionLabel = "重试",
-            onAction = { homeViewModel.onAction(HomeAction.Retry) }
+            onAction = { homeViewModel.onAction(HomeAction.Retry) },
+            accent = accent
           )
         }
 
@@ -198,6 +201,7 @@ fun HomeScreen(
           currentSongId = currentSongId,
           isPlaying = isPlaying,
           isDark = isDark,
+          accent = accent,
           scrollState = scrollStates.getValue(HomeTab.RECOMMEND),
           onTrackClick = { song, queue ->
             playerViewModel.onPlaySong(song, queue)
@@ -218,7 +222,7 @@ fun HomeScreen(
             icon = {
               MusicNoteIcon(
                 modifier = Modifier.size(24.dp),
-                color = EchoAccent.copy(alpha = 0.7f)
+                color = accent.copy(alpha = 0.7f)
               )
             }
           )
@@ -229,6 +233,7 @@ fun HomeScreen(
           currentSongId = currentSongId,
           isPlaying = isPlaying,
           isDark = isDark,
+          accent = accent,
           scrollState = scrollStates.getValue(HomeTab.RECENT),
           onTrackClick = { song, queue ->
             playerViewModel.onPlaySong(song, queue)
@@ -245,6 +250,7 @@ fun HomeScreen(
         currentSongId = currentSongId,
         isPlaying = isPlaying,
         isDark = isDark,
+        accent = accent,
         scrollState = scrollStates.getValue(HomeTab.PLAYLISTS),
         onTrackClick = { song, queue ->
           playerViewModel.onPlaySong(song, queue)
@@ -264,11 +270,12 @@ fun HomeScreen(
             icon = {
               MusicNoteIcon(
                 modifier = Modifier.size(24.dp),
-                color = EchoAccent.copy(alpha = 0.7f)
+                color = accent.copy(alpha = 0.7f)
               )
             },
             actionLabel = "去扫描",
-            onAction = onOpenLocalMusic
+            onAction = onOpenLocalMusic,
+            accent = accent
           )
         }
       } else {
@@ -277,6 +284,7 @@ fun HomeScreen(
           currentSongId = currentSongId,
           isPlaying = isPlaying,
           isDark = isDark,
+          accent = accent,
           scrollState = scrollStates.getValue(HomeTab.LOCAL),
           onTrackClick = { song, queue ->
             playerViewModel.onPlaySong(song, queue)
@@ -304,16 +312,23 @@ fun HomeScreen(
         )
         .statusBarsPadding()
     ) {
-      HomeTopBar(isDark = isDark, onSearch = { showSearch = true }, onProfile = onOpenProfile)
+      HomeTopBar(
+        isDark = isDark,
+        accent = accent,
+        onSearch = { showSearch = true },
+        onProfile = onOpenProfile
+      )
       HomeTabRow(
         selected = state.selectedTab,
         isDark = isDark,
+        accent = accent,
         onSelect = { homeViewModel.onAction(HomeAction.SelectTab(it)) }
       )
       if (state.selectedTab == HomeTab.LOCAL && state.localSongs.isNotEmpty()) {
         LocalHeaderRow(
           count = state.localSongs.size,
           isDark = isDark,
+          accent = accent,
           onRescan = onOpenLocalMusic
         )
       }
@@ -324,6 +339,7 @@ fun HomeScreen(
       viewModel = playerViewModel,
       isDark = isDark,
       background = background,
+      accent = accent,
       onOpen = { panelOpen = true }
     )
 
@@ -331,6 +347,7 @@ fun HomeScreen(
       SearchOverlay(
         state = state,
         isDark = isDark,
+        accent = accent,
         onQueryChange = { homeViewModel.onAction(HomeAction.SearchQueryChange(it)) },
         onClose = {
           homeViewModel.onAction(HomeAction.SearchQueryChange(""))
@@ -363,6 +380,7 @@ private fun BoxScope.MiniPlayerSlot(
   viewModel: PlayerViewModel,
   isDark: Boolean,
   background: Color,
+  accent: Color,
   onOpen: () -> Unit
 ) {
   val playerState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -385,7 +403,8 @@ private fun BoxScope.MiniPlayerSlot(
       },
       onTogglePlay = viewModel::onPlayPause,
       onClick = onOpen,
-      isDark = isDark
+      isDark = isDark,
+      accent = accent
     )
   }
 }
@@ -405,6 +424,7 @@ private fun CanvasPlaceholder(text: String, isDark: Boolean) {  Box(modifier = M
 @Composable
 private fun HomeTopBar(
   isDark: Boolean,
+  accent: Color,
   onSearch: () -> Unit,
   onProfile: () -> Unit,
   modifier: Modifier = Modifier
@@ -424,7 +444,7 @@ private fun HomeTopBar(
           SpanStyle(
             fontWeight = FontWeight.ExtraBold,
             letterSpacing = 2.sp,
-            color = EchoAccent
+            color = accent
           )
         ) { append("H") }
         withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp)) {
@@ -468,6 +488,7 @@ private fun HomeTopBar(
 private fun HomeTabRow(
   selected: HomeTab,
   isDark: Boolean,
+  accent: Color,
   onSelect: (HomeTab) -> Unit,
   modifier: Modifier = Modifier
 ) {
@@ -508,7 +529,7 @@ private fun HomeTabRow(
             .width(14.dp)
             .height(2.dp)
             .clip(RoundedCornerShape(1.dp))
-            .background(if (active) EchoAccent else Color.Transparent)
+            .background(if (active) accent else Color.Transparent)
         )
       }
     }
@@ -520,6 +541,7 @@ private fun HomeTabRow(
 private fun LocalHeaderRow(
   count: Int,
   isDark: Boolean,
+  accent: Color,
   onRescan: () -> Unit,
   modifier: Modifier = Modifier
 ) {
@@ -537,7 +559,7 @@ private fun LocalHeaderRow(
     Spacer(Modifier.weight(1f))
     Text(
       text = "重新扫描",
-      color = EchoAccent,
+      color = accent,
       fontSize = 11.sp,
       modifier = Modifier.clickable(onClick = onRescan)
     )
@@ -549,6 +571,7 @@ private fun LocalHeaderRow(
 private fun SearchOverlay(
   state: HomeUiState,
   isDark: Boolean,
+  accent: Color,
   onQueryChange: (String) -> Unit,
   onClose: () -> Unit,
   onPlay: (Song) -> Unit,
@@ -593,7 +616,7 @@ private fun SearchOverlay(
           onValueChange = onQueryChange,
           singleLine = true,
           textStyle = TextStyle(color = primary, fontSize = 14.sp),
-          cursorBrush = SolidColor(EchoAccent),
+          cursorBrush = SolidColor(accent),
           modifier = Modifier.fillMaxWidth(),
           decorationBox = { innerTextField ->
             if (state.searchQuery.isEmpty()) {

@@ -57,7 +57,6 @@ import com.dlust.ydhl2026.data.model.Song
 import com.dlust.ydhl2026.ui.components.CoverArt
 import com.dlust.ydhl2026.ui.components.coverGradientPair
 import com.dlust.ydhl2026.ui.components.pressScale
-import com.dlust.ydhl2026.ui.theme.EchoAccent
 import com.dlust.ydhl2026.ui.theme.EchoInk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -113,6 +112,8 @@ fun MosaicCanvas(
   currentSongId: String?,
   isPlaying: Boolean,
   isDark: Boolean,
+  /** 正在播放那张卡的高亮色（描边与音量条），由页面传入以跟随系统主题色 */
+  accent: Color,
   scrollState: MosaicScrollState,
   onTrackClick: (Song, List<Song>) -> Unit,
   onPlaylistClick: (Playlist) -> Unit,
@@ -229,6 +230,7 @@ fun MosaicCanvas(
             style = style,
             isPlaying = isPlaying,
             isDark = isDark,
+            accent = accent,
             // 卡片上的「单曲 · 序号」要按歌单里的位置算，不能用画布上的第几块，
             // 否则同一个条目循环补屏时会出现 20、23 这种对不上的编号
             ordinal = slot.globalIndex % entries.size,
@@ -297,6 +299,7 @@ private fun MosaicCard(
   style: MosaicStyle,
   isPlaying: Boolean,
   isDark: Boolean,
+  accent: Color,
   ordinal: Int,
   titleSp: Float,
   onClick: () -> Unit,
@@ -364,9 +367,10 @@ private fun MosaicCard(
     )
 
     if (style == MosaicStyle.Accent) {
-      Box(modifier = Modifier.fillMaxSize().border(1.5.dp, EchoAccent))
+      Box(modifier = Modifier.fillMaxSize().border(1.5.dp, accent))
       PlayingBars(
         isPlaying = isPlaying,
+        color = accent,
         modifier = Modifier.align(Alignment.TopEnd).padding(7.dp)
       )
     }
@@ -481,9 +485,9 @@ private fun PosterScrim(strength: Float) {
 
 /** 正在播放的三根跳动音量条 */
 @Composable
-private fun PlayingBars(isPlaying: Boolean, modifier: Modifier = Modifier) {
+private fun PlayingBars(isPlaying: Boolean, color: Color, modifier: Modifier = Modifier) {
   if (!isPlaying) {
-    BarsCanvas(heights = listOf(0.45f, 0.9f, 0.6f), modifier = modifier)
+    BarsCanvas(heights = listOf(0.45f, 0.9f, 0.6f), color = color, modifier = modifier)
     return
   }
   val transition = rememberInfiniteTransition(label = "mosaicPlayingBars")
@@ -498,18 +502,18 @@ private fun PlayingBars(isPlaying: Boolean, modifier: Modifier = Modifier) {
       label = "mosaicBar$index"
     )
   }
-  BarsCanvas(heights = bars.map { it.value }, modifier = modifier)
+  BarsCanvas(heights = bars.map { it.value }, color = color, modifier = modifier)
 }
 
 @Composable
-private fun BarsCanvas(heights: List<Float>, modifier: Modifier = Modifier) {
+private fun BarsCanvas(heights: List<Float>, color: Color, modifier: Modifier = Modifier) {
   Canvas(modifier = modifier.size(width = 11.dp, height = 12.dp)) {
     val barWidth = size.width * 0.2f
     val gap = size.width * 0.2f
     heights.forEachIndexed { index, ratio ->
       val barHeight = size.height * ratio
       drawRoundRect(
-        color = EchoAccent,
+        color = color,
         topLeft = Offset(index * (barWidth + gap), size.height - barHeight),
         size = androidx.compose.ui.geometry.Size(barWidth, barHeight),
         cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidth / 2, barWidth / 2)

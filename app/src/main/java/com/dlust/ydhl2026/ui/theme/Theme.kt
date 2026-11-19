@@ -9,6 +9,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
@@ -56,3 +57,17 @@ fun Ydhl2026Theme(
     content = content
   )
 }
+
+/**
+ * 页面强调色：Android 12+ 直接取系统壁纸派生的主题色，低版本退回品牌蓝。
+ *
+ * 不直接把 MaterialTheme.colorScheme.primary 撒到各个页面，是因为低版本没有动态取色，
+ * 默认色板是紫色，会和 Echo 的品牌蓝割裂；这里把版本判断收口到一处。
+ */
+@Composable
+fun echoAccentColor(): Color =
+  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    MaterialTheme.colorScheme.primary
+  } else {
+    EchoAccent
+  }

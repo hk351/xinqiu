@@ -55,7 +55,9 @@ fun MiniPlayerBar(
   onTogglePlay: () -> Unit,
   onClick: () -> Unit,
   modifier: Modifier = Modifier,
-  isDark: Boolean = true
+  isDark: Boolean = true,
+  /** 进度线颜色；首页会传系统主题色，其它页面沿用品牌蓝 */
+  accent: Color = EchoAccent
 ) {
   val interactionSource = remember { MutableInteractionSource() }
   val indication = LocalIndication.current
@@ -101,7 +103,7 @@ fun MiniPlayerBar(
         modifier = Modifier
           .fillMaxWidth(animatedProgress)
           .height(1.5.dp)
-          .background(EchoAccent)
+          .background(accent)
       )
     }
 
