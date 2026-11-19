@@ -29,6 +29,9 @@ class FakePlaybackEngine : PlaybackEngine {
   private val _completed = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
   override val completed: SharedFlow<Unit> = _completed.asSharedFlow()
 
+  private val _errors = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
+  override val errors: SharedFlow<Unit> = _errors.asSharedFlow()
+
   override fun play(url: String) {
     playedUrls += url
     playing = true
@@ -50,5 +53,12 @@ class FakePlaybackEngine : PlaybackEngine {
   /** 模拟当前歌曲自然播放结束，触发 ViewModel 的续播逻辑 */
   fun simulateCompletion() {
     _completed.tryEmit(Unit)
+  }
+
+  /** 模拟播放中途出错（断网、地址失效） */
+  fun simulateError() {
+    playing = false
+    _state.value = _state.value.copy(isPlaying = false)
+    _errors.tryEmit(Unit)
   }
 }

@@ -26,6 +26,9 @@ interface PlaybackEngine {
   /** 一首歌自然播放结束时发一次，用于自动续播 */
   val completed: SharedFlow<Unit>
 
+  /** 播放中途出错（断网、地址失效等）时发一次，由上层提示用户并修正播放状态 */
+  val errors: SharedFlow<Unit>
+
   /** 换歌并从头发送播放 */
   fun play(url: String)
 

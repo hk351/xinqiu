@@ -50,6 +50,9 @@ class Media3PlaybackEngine(context: Context) : PlaybackEngine {
   private val _completed = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
   override val completed: SharedFlow<Unit> = _completed.asSharedFlow()
 
+  private val _errors = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+  override val errors: SharedFlow<Unit> = _errors.asSharedFlow()
+
   private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
   private var tickJob: Job? = null
 
@@ -68,7 +71,10 @@ class Media3PlaybackEngine(context: Context) : PlaybackEngine {
 
       override fun onPlayerError(error: PlaybackException) {
         Log.w(TAG, "播放失败：${error.errorCodeName}", error)
+        // 出错后 playWhenReady 仍为 true，若不关掉，界面上会一直显示「正在播放」
+        player.playWhenReady = false
         publish()
+        _errors.tryEmit(Unit)
       }
     })
   }

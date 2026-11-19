@@ -55,8 +55,9 @@ class PlayerViewModelTest {
   private fun createViewModel(
     store: PlayerBackdropStore = PlayerBackdropStore(),
     lyricsSource: OnlineLyricsSource = FakeLyricsSource(),
-    lyricsCache: LyricsCache = MemoryLyricsCache()
-  ) = PlayerViewModel(engine, store, FakeRepository(), FakeHistory(), lyricsSource, lyricsCache)
+    lyricsCache: LyricsCache = MemoryLyricsCache(),
+    repository: MusicRepository = FakeRepository()
+  ) = PlayerViewModel(engine, store, repository, FakeHistory(), lyricsSource, lyricsCache)
 
   private class FakeRepository : MusicRepository {
     override suspend fun charts(): List<Playlist> = emptyList()
@@ -71,6 +72,24 @@ class PlayerViewModelTest {
 
     override suspend fun playUrl(song: Song): String? =
       song.sourceUrl.ifBlank { "https://example.com/${song.id}.mp3" }
+  }
+
+  /** 解析地址时会挂起的仓库，用来复现「同一首歌连点两次」的取消场景 */
+  private class GatedRepository(private val gate: CompletableDeferred<Unit>) : MusicRepository {
+    override suspend fun charts(): List<Playlist> = emptyList()
+
+    override suspend fun chartTracks(chartId: Long): List<ChartTrack> = emptyList()
+
+    override suspend fun recommended(): List<ChartTrack> = emptyList()
+
+    override fun recentSongs(): Flow<List<Song>> = flowOf(emptyList())
+
+    override suspend fun search(query: String): List<Song> = emptyList()
+
+    override suspend fun playUrl(song: Song): String? {
+      gate.await()
+      return "https://example.com/${song.id}.mp3"
+    }
   }
 
   /** 可挂起的歌词源：awaitGate 不为空时先等测试放行，用来模拟慢网络 */
@@ -332,8 +351,7 @@ class PlayerViewModelTest {
   }
 
   @Test
-  fun `歌词没回来就切歌 旧结果不会写进新歌`() {
-    val gate = CompletableDeferred<Unit>()
+  fun `歌词没回来就切歌 旧结果不会写进新歌`() {    val gate = CompletableDeferred<Unit>()
     val viewModel = createViewModel(lyricsSource = FakeLyricsSource(gate))
     val first = neteaseSong("ncm-1", "晴天")
     val second = neteaseSong("ncm-2", "七里香")
@@ -348,6 +366,36 @@ class PlayerViewModelTest {
     assertEquals("ncm-2", state.currentSong?.id)
     assertEquals(listOf("歌词-七里香"), state.currentSong?.lyrics?.map { it.text })
     assertFalse(state.lyricsLoading)
+  }
+
+  @Test
+  fun `播放中途出错会停止播放并提示原因`() {
+    val viewModel = createViewModel()
+    val queue = queue()
+    viewModel.onPlaySong(queue[0], queue)
+
+    engine.simulateError()
+
+    val state = viewModel.uiState.value
+    assertFalse(state.isPlaying)
+    assertEquals("「歌曲s1」播放失败，请检查网络后重试", state.notice)
+  }
+
+  @Test
+  fun `同一首歌连点两次 取消旧请求不会误报没有音频`() {
+    val gate = CompletableDeferred<Unit>()
+    val viewModel = createViewModel(repository = GatedRepository(gate))
+    val song = song("s1", 1000L)
+
+    viewModel.onPlaySong(song, listOf(song))
+    // 第二次点同一首会取消上一次的地址解析；取消不能当成「没有音频」
+    viewModel.onPlaySong(song, listOf(song))
+    gate.complete(Unit)
+
+    val state = viewModel.uiState.value
+    assertEquals(null, state.notice)
+    assertTrue(state.isPlaying)
+    assertEquals(listOf("https://example.com/s1.mp3"), engine.playedUrls)
   }
 
   private fun neteaseSong(id: String, title: String) = Song(

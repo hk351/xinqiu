@@ -9,6 +9,7 @@ import com.dlust.ydhl2026.data.model.Song
 import com.dlust.ydhl2026.data.playback.PlaybackEngine
 import com.dlust.ydhl2026.data.repository.MusicRepository
 import com.dlust.ydhl2026.data.settings.PlayerBackdropStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -84,6 +85,15 @@ class PlayerViewModel(
     }
     viewModelScope.launch {
       engine.completed.collect { handleCompletion() }
+    }
+    viewModelScope.launch {
+      engine.errors.collect {
+        // 引擎已经停下来了，这里同步状态并提示；没有当前歌时（启动阶段误报）忽略
+        val title = _uiState.value.currentSong?.title ?: return@collect
+        _uiState.update {
+          it.copy(isPlaying = false, notice = "「$title」播放失败，请检查网络后重试")
+        }
+      }
     }
   }
 
@@ -184,9 +194,15 @@ class PlayerViewModel(
     _uiState.update { it.copy(lyricsLoading = true) }
     lyricsJob = viewModelScope.launch {
       val cached = lyricsCache.get(song.id)
-      val lines = cached ?: runCatching { lyricsSource.find(song) }
-        .getOrDefault(emptyList())
-        .also { if (it.isNotEmpty()) lyricsCache.put(song.id, it) }
+      // 取消是切歌的正常流程，不能当成「请求失败」继续往下走，否则会把空结果写进状态
+      val fetched = cached ?: try {
+        lyricsSource.find(song)
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        emptyList()
+      }
+      val lines = cached ?: fetched.also { if (it.isNotEmpty()) lyricsCache.put(song.id, it) }
       if (_uiState.value.currentSong?.id != song.id) return@launch
       _uiState.update { state ->
         state.copy(
@@ -204,7 +220,15 @@ class PlayerViewModel(
   private fun resolveAndPlay(song: Song) {
     playJob?.cancel()
     playJob = viewModelScope.launch {
-      val url = runCatching { repository.playUrl(song) }.getOrNull()
+      // 同理：取消必须透传，否则旧任务会把「取消」当成解析失败，
+      // 在重新播放同一首歌时误弹「暂时没有可播放的音频」
+      val url = try {
+        repository.playUrl(song)
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        null
+      }
       if (_uiState.value.currentSong?.id != song.id) return@launch
       if (url.isNullOrBlank()) {
         _uiState.update {
