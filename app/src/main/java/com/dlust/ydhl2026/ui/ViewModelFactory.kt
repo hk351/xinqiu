@@ -14,6 +14,7 @@ import com.dlust.ydhl2026.data.lyrics.OnlineLyricsSource
 import com.dlust.ydhl2026.data.playback.PlaybackEngine
 import com.dlust.ydhl2026.data.repository.MusicRepository
 import com.dlust.ydhl2026.data.settings.PlayerBackdropStore
+import com.dlust.ydhl2026.data.settings.ThemeModeStore
 import com.dlust.ydhl2026.ui.home.HomeViewModel
 import com.dlust.ydhl2026.ui.local.LocalMusicViewModel
 import com.dlust.ydhl2026.ui.player.PlayerViewModel
@@ -46,6 +47,9 @@ fun Context.lyricsFolderStore(): LyricsFolderStore =
 
 fun Context.playerBackdropStore(): PlayerBackdropStore =
   (applicationContext as EchoApp).playerBackdropStore
+
+fun Context.themeModeStore(): ThemeModeStore =
+  (applicationContext as EchoApp).themeModeStore
 
 fun Context.playHistoryStore(): PlayHistoryStore =
   (applicationContext as EchoApp).playHistoryStore

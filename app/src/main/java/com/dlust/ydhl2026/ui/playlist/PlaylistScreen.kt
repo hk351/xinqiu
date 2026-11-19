@@ -17,7 +17,6 @@ import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -101,6 +100,7 @@ import com.dlust.ydhl2026.ui.player.PlayerViewModel
 import com.dlust.ydhl2026.ui.theme.EchoAccent
 import com.dlust.ydhl2026.ui.theme.EchoBackground
 import com.dlust.ydhl2026.ui.theme.EchoBackgroundDark
+import com.dlust.ydhl2026.ui.theme.LocalEchoDark
 import com.dlust.ydhl2026.ui.theme.EchoTextPrimary
 import com.dlust.ydhl2026.ui.theme.EchoTextPrimaryDark
 import com.dlust.ydhl2026.ui.theme.EchoTextSecondary
@@ -143,7 +143,7 @@ fun PlaylistScreen(
   val currentSongId by remember { derivedStateOf { playerState.currentSong?.id } }
   val isPlaying by remember { derivedStateOf { playerState.isPlaying } }
 
-  val isDark = isSystemInDarkTheme()
+  val isDark = LocalEchoDark.current
   val background = if (isDark) EchoBackgroundDark else EchoBackground
   val textPrimary = if (isDark) DarkTextPrimary else EchoTextPrimary
   val textSecondary = if (isDark) DarkTextSecondary else EchoTextSecondary

@@ -4,7 +4,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -73,7 +72,12 @@ private fun isPhoneValid(phone: String): Boolean =
   phone.length == 11 && phone.startsWith("1") && phone.all { it.isDigit() }
 
 @Composable
-fun LoginScreen(onLoginSuccess: () -> Unit, onClose: () -> Unit) {
+fun LoginScreen(
+  isDark: Boolean,
+  onToggleDark: () -> Unit,
+  onLoginSuccess: () -> Unit,
+  onClose: () -> Unit
+) {
   val context = LocalContext.current
   val scope = rememberCoroutineScope()
 
@@ -89,9 +93,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onClose: () -> Unit) {
   var gaze by remember { mutableStateOf(MascotGaze.CENTER) }
   var typePulse by remember { mutableIntStateOf(0) }
   val brandColor = BrandBlue
-  // 跟随系统深色模式，右上角月亮按钮仍然可以手动切换；remember 只在首次组合时取值
-  val systemDark = isSystemInDarkTheme()
-  var isDark by remember { mutableStateOf(systemDark) }
+  // 深/浅色由 Activity 统一管理：这里只负责发出一键切换，全应用一起变
 
   val bgColor = if (isDark) Color(0xFF0F1115) else Color.White
   val textMain = if (isDark) Color(0xFFE8EAF0) else Color(0xFF22262E)
@@ -164,7 +166,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onClose: () -> Unit) {
       DarkModeButton(
         isDark = isDark,
         borderColor = borderColor,
-        onClick = { isDark = !isDark }
+        onClick = onToggleDark
       )
     }
     Spacer(Modifier.height(14.dp))

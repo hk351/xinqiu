@@ -17,7 +17,9 @@ import com.dlust.ydhl2026.data.remote.ChartCache
 import com.dlust.ydhl2026.data.remote.NeteaseApi
 import com.dlust.ydhl2026.data.repository.MusicRepository
 import com.dlust.ydhl2026.data.repository.NeteaseMusicRepository
+import com.dlust.ydhl2026.data.settings.ThemeModeStore
 import com.dlust.ydhl2026.data.settings.createPlayerBackdropStore
+import com.dlust.ydhl2026.data.settings.createThemeModeStore
 
 /**
  * 手动 DI 容器（本课程不使用 Hilt）：
@@ -46,6 +48,9 @@ class EchoApp : Application() {
 
   /** 播放背景的用户偏好，面板里改完即持久化 */
   val playerBackdropStore by lazy { createPlayerBackdropStore(this) }
+
+  /** 深/浅色主题，登录页右上角切换后全应用共用 */
+  val themeModeStore: ThemeModeStore by lazy { createThemeModeStore(this) }
 
   /** 网络歌歌词的磁盘缓存，播放器取词后写入，重播不再请求 */
   val lyricsCache by lazy { FileLyricsCache(this) }

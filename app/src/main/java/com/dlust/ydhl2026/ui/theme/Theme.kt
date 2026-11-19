@@ -9,8 +9,17 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+
+/**
+ * 全应用统一的深浅色判断。
+ *
+ * 登录页可以把主题切到「强制深色 / 强制浅色」，此时各页面不能再各自读系统配置，
+ * 否则首页、导航栏仍是系统主题，和登录页的观感割裂。
+ */
+val LocalEchoDark = staticCompositionLocalOf { false }
 
 private val DarkColorScheme = darkColorScheme(
   primary = Purple80,

@@ -19,7 +19,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -85,6 +84,7 @@ import com.dlust.ydhl2026.ui.theme.EchoBlueLight
 import com.dlust.ydhl2026.ui.theme.EchoBorder
 import com.dlust.ydhl2026.ui.theme.EchoBorderDark
 import com.dlust.ydhl2026.ui.theme.EchoCardDark
+import com.dlust.ydhl2026.ui.theme.LocalEchoDark
 import com.dlust.ydhl2026.ui.theme.EchoTextPrimary
 import com.dlust.ydhl2026.ui.theme.EchoTextPrimaryDark
 import com.dlust.ydhl2026.ui.theme.EchoTextSecondary
@@ -103,7 +103,7 @@ fun LocalMusicScreen(
   modifier: Modifier = Modifier
 ) {
   val context = LocalContext.current
-  val isDark = isSystemInDarkTheme()
+  val isDark = LocalEchoDark.current
   val store = remember { context.localMusicStore() }
   val source = remember { context.localMusicSource() }
   val lyricsSource = remember { context.localLyricsSource() }

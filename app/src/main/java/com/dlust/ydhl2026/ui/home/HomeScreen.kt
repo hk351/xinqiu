@@ -7,7 +7,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -76,6 +75,7 @@ import com.dlust.ydhl2026.ui.player.NowPlayingPanelLayer
 import com.dlust.ydhl2026.ui.player.PlayerViewModel
 import com.dlust.ydhl2026.ui.theme.EchoBackground
 import com.dlust.ydhl2026.ui.theme.EchoBackgroundDark
+import com.dlust.ydhl2026.ui.theme.LocalEchoDark
 import com.dlust.ydhl2026.ui.theme.echoAccentColor
 import com.dlust.ydhl2026.ui.theme.EchoTextPrimary
 import com.dlust.ydhl2026.ui.theme.EchoTextPrimaryDark
@@ -112,7 +112,7 @@ fun HomeScreen(
   val notice by remember(playerViewModel) {
     playerViewModel.uiState.map { it.notice }.distinctUntilChanged()
   }.collectAsStateWithLifecycle(initialValue = null)
-  val isDark = isSystemInDarkTheme()
+  val isDark = LocalEchoDark.current
   // Android 12+ 跟随系统壁纸取色，低版本仍是品牌蓝
   val accent = echoAccentColor()
 
