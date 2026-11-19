@@ -15,7 +15,9 @@ import com.dlust.ydhl2026.ui.home.HomeScreen
 import com.dlust.ydhl2026.ui.local.LocalMusicScreen
 import com.dlust.ydhl2026.ui.player.NowPlayingScreen
 import com.dlust.ydhl2026.ui.player.PlayerViewModel
+import com.dlust.ydhl2026.ui.lyricsCache
 import com.dlust.ydhl2026.ui.musicRepository
+import com.dlust.ydhl2026.ui.onlineLyricsSource
 import com.dlust.ydhl2026.ui.playHistoryStore
 import com.dlust.ydhl2026.ui.playbackEngine
 import com.dlust.ydhl2026.ui.playerBackdropStore
@@ -37,7 +39,9 @@ class MainActivity : ComponentActivity() {
             engine = playbackEngine(),
             backdropStore = playerBackdropStore(),
             repository = musicRepository(),
-            history = playHistoryStore()
+            history = playHistoryStore(),
+            lyricsSource = onlineLyricsSource(),
+            lyricsCache = lyricsCache()
           )
         )
         NavHost(navController = navController, startDestination = "splash") {

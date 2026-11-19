@@ -156,6 +156,7 @@ fun NowPlayingPanelLayer(
         positionMs = state.positionMs,
         durationMs = if (state.durationMs > 0L) state.durationMs else song.durationMs,
         isPlaying = state.isPlaying,
+        lyricsLoading = state.lyricsLoading,
         backdrop = state.backdrop,
         seed = song.id,
         artUrl = song.albumArtUrl,

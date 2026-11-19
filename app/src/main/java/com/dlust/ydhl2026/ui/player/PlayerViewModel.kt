@@ -3,6 +3,8 @@ package com.dlust.ydhl2026.ui.player
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dlust.ydhl2026.data.local.PlayHistory
+import com.dlust.ydhl2026.data.lyrics.LyricsCache
+import com.dlust.ydhl2026.data.lyrics.OnlineLyricsSource
 import com.dlust.ydhl2026.data.model.Song
 import com.dlust.ydhl2026.data.playback.PlaybackEngine
 import com.dlust.ydhl2026.data.repository.MusicRepository
@@ -13,6 +15,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+/** 网易云来源标记，与 NeteaseApi 里写入 Song.source 的值保持一致 */
+private const val NET_EASE_SOURCE = "netease"
 
 /** 播放器 UI 状态：UDF 里的唯一数据源，界面只读不改 */
 data class PlayerUiState(
@@ -25,7 +30,9 @@ data class PlayerUiState(
   /** 用户 DIY 的播放背景，面板与歌词舞台共用 */
   val backdrop: PlayerBackdrop = PlayerBackdrop.Default,
   /** 一次性提示（比如网络歌没有版权），界面展示后回调清空 */
-  val notice: String? = null
+  val notice: String? = null,
+  /** 在线歌词正在取，舞台展示「正在加载歌词…」而不是「没有歌词」 */
+  val lyricsLoading: Boolean = false
 )
 
 /**
@@ -40,7 +47,9 @@ class PlayerViewModel(
   private val engine: PlaybackEngine,
   private val backdropStore: PlayerBackdropStore,
   private val repository: MusicRepository,
-  private val history: PlayHistory
+  private val history: PlayHistory,
+  private val lyricsSource: OnlineLyricsSource,
+  private val lyricsCache: LyricsCache
 ) : ViewModel() {
 
   private val _uiState = MutableStateFlow(
@@ -51,6 +60,9 @@ class PlayerViewModel(
 
   /** 正在进行的地址解析；用户快速切歌时取消上一次，避免旧请求把新歌覆盖掉 */
   private var playJob: Job? = null
+
+  /** 正在进行的歌词请求，和地址解析同理，切歌就取消 */
+  private var lyricsJob: Job? = null
 
   init {
     viewModelScope.launch {
@@ -88,6 +100,7 @@ class PlayerViewModel(
     }
     history.record(song)
     resolveAndPlay(song)
+    loadLyrics(song)
   }
 
   fun onPlayPause() {
@@ -154,6 +167,34 @@ class PlayerViewModel(
     }
     history.record(song)
     resolveAndPlay(song)
+    loadLyrics(song)
+  }
+
+  /**
+   * 网络歌的歌词在首页/搜索里拿不到，点播时按 id 补取：
+   * 先看磁盘缓存，没有再请求接口；回来后核对当前歌没被切走才写进状态。
+   * 本地歌的歌词在扫描阶段就配好了，这里不再重复请求。
+   */
+  private fun loadLyrics(song: Song) {
+    lyricsJob?.cancel()
+    if (song.source != NET_EASE_SOURCE || song.lyrics.isNotEmpty()) {
+      _uiState.update { it.copy(lyricsLoading = false) }
+      return
+    }
+    _uiState.update { it.copy(lyricsLoading = true) }
+    lyricsJob = viewModelScope.launch {
+      val cached = lyricsCache.get(song.id)
+      val lines = cached ?: runCatching { lyricsSource.find(song) }
+        .getOrDefault(emptyList())
+        .also { if (it.isNotEmpty()) lyricsCache.put(song.id, it) }
+      if (_uiState.value.currentSong?.id != song.id) return@launch
+      _uiState.update { state ->
+        state.copy(
+          currentSong = state.currentSong?.copy(lyrics = lines),
+          lyricsLoading = false
+        )
+      }
+    }
   }
 
   /**

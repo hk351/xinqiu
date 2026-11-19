@@ -95,6 +95,8 @@ fun ScatterLyricStage(
   positionMs: Long,
   durationMs: Long,
   isPlaying: Boolean,
+  /** 在线歌词还在路上，用作空态文案的区分 */
+  lyricsLoading: Boolean = false,
   backdrop: PlayerBackdrop,
   seed: String,
   artUrl: String?,
@@ -199,7 +201,11 @@ fun ScatterLyricStage(
       contentAlignment = Alignment.Center
     ) {
       if (lines.isEmpty()) {
-        Text(text = "这首歌还没有歌词", color = Color.White.copy(alpha = 0.45f), fontSize = 13.sp)
+        Text(
+          text = if (lyricsLoading) "正在加载歌词…" else "这首歌还没有歌词",
+          color = Color.White.copy(alpha = 0.45f),
+          fontSize = 13.sp
+        )
       } else {
         val activeIndex = activeLyricIndex(lines, smoothPosition)
         AnimatedContent(

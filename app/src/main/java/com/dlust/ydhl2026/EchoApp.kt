@@ -8,6 +8,7 @@ import com.dlust.ydhl2026.data.local.LyricsFolderStore
 import com.dlust.ydhl2026.data.local.MediaStoreLocalMusicSource
 import com.dlust.ydhl2026.data.local.PlayHistoryStore
 import com.dlust.ydhl2026.data.local.SafLrcLyricsSource
+import com.dlust.ydhl2026.data.lyrics.FileLyricsCache
 import com.dlust.ydhl2026.data.lyrics.NeteaseLyricsSource
 import com.dlust.ydhl2026.data.lyrics.OnlineLyricsSource
 import com.dlust.ydhl2026.data.playback.Media3PlaybackEngine
@@ -45,6 +46,9 @@ class EchoApp : Application() {
 
   /** 播放背景的用户偏好，面板里改完即持久化 */
   val playerBackdropStore by lazy { createPlayerBackdropStore(this) }
+
+  /** 网络歌歌词的磁盘缓存，播放器取词后写入，重播不再请求 */
+  val lyricsCache by lazy { FileLyricsCache(this) }
 
   /** 本地音乐扫描结果的内存缓存，首页入口卡与本地音乐页共享 */
   val localMusicStore = LocalMusicStore()

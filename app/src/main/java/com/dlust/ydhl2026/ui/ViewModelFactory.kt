@@ -9,6 +9,7 @@ import com.dlust.ydhl2026.data.local.LocalMusicSource
 import com.dlust.ydhl2026.data.local.LocalMusicStore
 import com.dlust.ydhl2026.data.local.LyricsFolderStore
 import com.dlust.ydhl2026.data.local.PlayHistoryStore
+import com.dlust.ydhl2026.data.lyrics.LyricsCache
 import com.dlust.ydhl2026.data.lyrics.OnlineLyricsSource
 import com.dlust.ydhl2026.data.playback.PlaybackEngine
 import com.dlust.ydhl2026.data.repository.MusicRepository
@@ -49,6 +50,9 @@ fun Context.playerBackdropStore(): PlayerBackdropStore =
 fun Context.playHistoryStore(): PlayHistoryStore =
   (applicationContext as EchoApp).playHistoryStore
 
+fun Context.lyricsCache(): LyricsCache =
+  (applicationContext as EchoApp).lyricsCache
+
 class HomeViewModelFactory(
   private val repository: MusicRepository,
   private val localMusicStore: LocalMusicStore
@@ -73,12 +77,14 @@ class PlayerViewModelFactory(
   private val engine: PlaybackEngine,
   private val backdropStore: PlayerBackdropStore,
   private val repository: MusicRepository,
-  private val history: PlayHistoryStore
+  private val history: PlayHistoryStore,
+  private val lyricsSource: OnlineLyricsSource,
+  private val lyricsCache: LyricsCache
 ) : ViewModelProvider.Factory {
 
   @Suppress("UNCHECKED_CAST")
   override fun <T : ViewModel> create(modelClass: Class<T>): T =
-    PlayerViewModel(engine, backdropStore, repository, history) as T
+    PlayerViewModel(engine, backdropStore, repository, history, lyricsSource, lyricsCache) as T
 }
 
 class LocalMusicViewModelFactory(

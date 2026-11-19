@@ -111,6 +111,12 @@ class OnlineLyricMatchTest {
     assertTrue(isCreditLine("编曲：某某"))
     assertTrue(isCreditLine("  制作人: 某某"))
     assertTrue(isCreditLine("混音：某某"))
+    // 接口返回的新格式在字段名后带英文说明或岗位说明
+    assertTrue(isCreditLine("作词Lyrics by : 某某"))
+    assertTrue(isCreditLine("母带后期处理录音室 : Studio21A"))
+    assertTrue(isCreditLine("人声录音 : 某某"))
+    assertTrue(isCreditLine("音乐制作助理：某某"))
+    assertTrue(isCreditLine("和音 : 某某"))
 
     val lines = listOf(
       LyricLine(timeMs = 0L, text = "作词 : 某某"),

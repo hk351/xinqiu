@@ -1,7 +1,10 @@
 package com.dlust.ydhl2026
 
 import com.dlust.ydhl2026.data.local.PlayHistory
+import com.dlust.ydhl2026.data.lyrics.LyricsCache
+import com.dlust.ydhl2026.data.lyrics.OnlineLyricsSource
 import com.dlust.ydhl2026.data.model.ChartTrack
+import com.dlust.ydhl2026.data.model.LyricLine
 import com.dlust.ydhl2026.data.model.Playlist
 import com.dlust.ydhl2026.data.model.Song
 import com.dlust.ydhl2026.data.playback.FakePlaybackEngine
@@ -10,6 +13,7 @@ import com.dlust.ydhl2026.data.settings.PlayerBackdropStore
 import com.dlust.ydhl2026.ui.player.BackdropPreset
 import com.dlust.ydhl2026.ui.player.PlayerBackdrop
 import com.dlust.ydhl2026.ui.player.PlayerViewModel
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -49,8 +53,10 @@ class PlayerViewModelTest {
 
   /** 测试里不关心榜单和网络，仓库只负责把歌曲自带的地址交回去 */
   private fun createViewModel(
-    store: PlayerBackdropStore = PlayerBackdropStore()
-  ) = PlayerViewModel(engine, store, FakeRepository(), FakeHistory())
+    store: PlayerBackdropStore = PlayerBackdropStore(),
+    lyricsSource: OnlineLyricsSource = FakeLyricsSource(),
+    lyricsCache: LyricsCache = MemoryLyricsCache()
+  ) = PlayerViewModel(engine, store, FakeRepository(), FakeHistory(), lyricsSource, lyricsCache)
 
   private class FakeRepository : MusicRepository {
     override suspend fun charts(): List<Playlist> = emptyList()
@@ -63,7 +69,38 @@ class PlayerViewModelTest {
 
     override suspend fun search(query: String): List<Song> = emptyList()
 
-    override suspend fun playUrl(song: Song): String? = song.sourceUrl
+    override suspend fun playUrl(song: Song): String? =
+      song.sourceUrl.ifBlank { "https://example.com/${song.id}.mp3" }
+  }
+
+  /** 可挂起的歌词源：awaitGate 不为空时先等测试放行，用来模拟慢网络 */
+  private class FakeLyricsSource(
+    private val awaitGate: CompletableDeferred<Unit>? = null
+  ) : OnlineLyricsSource {
+    var callCount = 0
+      private set
+
+    override suspend fun find(song: Song): List<LyricLine> {
+      callCount++
+      awaitGate?.await()
+      return listOf(LyricLine(timeMs = 0L, endMs = 1000L, text = "歌词-${song.title}"))
+    }
+  }
+
+  private class MemoryLyricsCache : LyricsCache {
+    val store = mutableMapOf<String, List<LyricLine>>()
+    var hits = 0
+      private set
+
+    override suspend fun get(songId: String): List<LyricLine>? {
+      val lines = store[songId] ?: return null
+      hits++
+      return lines
+    }
+
+    override suspend fun put(songId: String, lines: List<LyricLine>) {
+      store[songId] = lines
+    }
   }
 
   private class FakeHistory : PlayHistory {
@@ -262,4 +299,64 @@ class PlayerViewModelTest {
     assertNotEquals("s1", state.currentSong?.id)
     assertEquals("https://example.com/${state.currentSong?.id}.mp3", engine.playedUrls.last())
   }
+
+  @Test
+  fun `播放网络歌会补取歌词并写进缓存`() {
+    val source = FakeLyricsSource()
+    val cache = MemoryLyricsCache()
+    val viewModel = createViewModel(lyricsSource = source, lyricsCache = cache)
+    val song = neteaseSong("ncm-1", "晴天")
+
+    viewModel.onPlaySong(song, listOf(song))
+
+    val state = viewModel.uiState.value
+    assertEquals(listOf("歌词-晴天"), state.currentSong?.lyrics?.map { it.text })
+    assertFalse(state.lyricsLoading)
+    assertEquals(1, source.callCount)
+    assertEquals(listOf("歌词-晴天"), cache.store["ncm-1"]?.map { it.text })
+  }
+
+  @Test
+  fun `缓存里已有的歌词不再请求接口`() {
+    val source = FakeLyricsSource()
+    val cache = MemoryLyricsCache().apply {
+      store["ncm-1"] = listOf(LyricLine(timeMs = 0L, text = "缓存里的词"))
+    }
+    val viewModel = createViewModel(lyricsSource = source, lyricsCache = cache)
+    val song = neteaseSong("ncm-1", "晴天")
+
+    viewModel.onPlaySong(song, listOf(song))
+
+    assertEquals(listOf("缓存里的词"), viewModel.uiState.value.currentSong?.lyrics?.map { it.text })
+    assertEquals(0, source.callCount)
+  }
+
+  @Test
+  fun `歌词没回来就切歌 旧结果不会写进新歌`() {
+    val gate = CompletableDeferred<Unit>()
+    val viewModel = createViewModel(lyricsSource = FakeLyricsSource(gate))
+    val first = neteaseSong("ncm-1", "晴天")
+    val second = neteaseSong("ncm-2", "七里香")
+
+    viewModel.onPlaySong(first, listOf(first, second))
+    assertTrue(viewModel.uiState.value.lyricsLoading)
+
+    viewModel.onPlayFromQueue(1)
+    gate.complete(Unit)
+
+    val state = viewModel.uiState.value
+    assertEquals("ncm-2", state.currentSong?.id)
+    assertEquals(listOf("歌词-七里香"), state.currentSong?.lyrics?.map { it.text })
+    assertFalse(state.lyricsLoading)
+  }
+
+  private fun neteaseSong(id: String, title: String) = Song(
+    id = id,
+    title = title,
+    artist = "歌手",
+    durationMs = 200_000L,
+    source = "netease",
+    sourceUrl = "",
+    lastModifiedAt = 0L
+  )
 }
