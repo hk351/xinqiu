@@ -10,6 +10,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -54,6 +55,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import com.dlust.ydhl2026.data.model.Playlist
 import com.dlust.ydhl2026.data.model.Song
 import com.dlust.ydhl2026.ui.HomeViewModelFactory
@@ -98,7 +101,17 @@ fun HomeScreen(
   val homeViewModel: HomeViewModel =
     viewModel(factory = HomeViewModelFactory(repository, localMusicStore))
   val state by homeViewModel.uiState.collectAsStateWithLifecycle()
-  val playerState by playerViewModel.uiState.collectAsStateWithLifecycle()
+  // 只在「当前歌 / 播放状态 / 提示」变化时重组首页；
+  // 播放进度每 250ms 一跳，那个订阅收进迷你条自己，避免整面墙跟着重组
+  val currentSongId by remember(playerViewModel) {
+    playerViewModel.uiState.map { it.currentSong?.id }.distinctUntilChanged()
+  }.collectAsStateWithLifecycle(initialValue = null)
+  val isPlaying by remember(playerViewModel) {
+    playerViewModel.uiState.map { it.isPlaying }.distinctUntilChanged()
+  }.collectAsStateWithLifecycle(initialValue = false)
+  val notice by remember(playerViewModel) {
+    playerViewModel.uiState.map { it.notice }.distinctUntilChanged()
+  }.collectAsStateWithLifecycle(initialValue = null)
   val isDark = isSystemInDarkTheme()
 
   var panelOpen by rememberSaveable { mutableStateOf(false) }
@@ -117,9 +130,9 @@ fun HomeScreen(
   )
 
   // 网络歌没有版权时播放器会塞一条提示进来，展示后立刻清空，避免重组时反复弹
-  LaunchedEffect(playerState.notice) {
-    val notice = playerState.notice ?: return@LaunchedEffect
-    Toast.makeText(context, notice, Toast.LENGTH_SHORT).show()
+  LaunchedEffect(notice) {
+    val text = notice ?: return@LaunchedEffect
+    Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
     playerViewModel.onNoticeShown()
   }
 
@@ -182,8 +195,8 @@ fun HomeScreen(
 
         else -> MosaicCanvas(
           entries = recommendedEntries,
-          currentSongId = playerState.currentSong?.id,
-          isPlaying = playerState.isPlaying,
+          currentSongId = currentSongId,
+          isPlaying = isPlaying,
           isDark = isDark,
           scrollState = scrollStates.getValue(HomeTab.RECOMMEND),
           onTrackClick = { song, queue ->
@@ -213,8 +226,8 @@ fun HomeScreen(
       } else {
         MosaicCanvas(
           entries = recentEntries,
-          currentSongId = playerState.currentSong?.id,
-          isPlaying = playerState.isPlaying,
+          currentSongId = currentSongId,
+          isPlaying = isPlaying,
           isDark = isDark,
           scrollState = scrollStates.getValue(HomeTab.RECENT),
           onTrackClick = { song, queue ->
@@ -229,8 +242,8 @@ fun HomeScreen(
 
       HomeTab.PLAYLISTS -> MosaicCanvas(
         entries = playlistEntries,
-        currentSongId = playerState.currentSong?.id,
-        isPlaying = playerState.isPlaying,
+        currentSongId = currentSongId,
+        isPlaying = isPlaying,
         isDark = isDark,
         scrollState = scrollStates.getValue(HomeTab.PLAYLISTS),
         onTrackClick = { song, queue ->
@@ -261,8 +274,8 @@ fun HomeScreen(
       } else {
         MosaicCanvas(
           entries = localEntries,
-          currentSongId = playerState.currentSong?.id,
-          isPlaying = playerState.isPlaying,
+          currentSongId = currentSongId,
+          isPlaying = isPlaying,
           isDark = isDark,
           scrollState = scrollStates.getValue(HomeTab.LOCAL),
           onTrackClick = { song, queue ->
@@ -307,30 +320,12 @@ fun HomeScreen(
     }
 
     // 迷你条悬浮在墙底，细进度线 + 一行文字，不遮挡封面主体
-    val currentSong = playerState.currentSong
-    if (currentSong != null) {
-      // 外层先铺页面底色再让出导航栏高度，保证三键导航下渐变不会被截断
-      Box(
-        modifier = Modifier
-          .align(Alignment.BottomCenter)
-          .fillMaxWidth()
-          .background(background)
-          .navigationBarsPadding()
-      ) {
-        MiniPlayerBar(
-          song = currentSong,
-          isPlaying = playerState.isPlaying,
-          progress = if (playerState.durationMs > 0L) {
-            playerState.positionMs.toFloat() / playerState.durationMs
-          } else {
-            0f
-          },
-          onTogglePlay = playerViewModel::onPlayPause,
-          onClick = { panelOpen = true },
-          isDark = isDark
-        )
-      }
-    }
+    MiniPlayerSlot(
+      viewModel = playerViewModel,
+      isDark = isDark,
+      background = background,
+      onOpen = { panelOpen = true }
+    )
 
     if (showSearch) {
       SearchOverlay(
@@ -359,10 +354,45 @@ fun HomeScreen(
   }
 }
 
+/**
+ * 迷你条自己订阅播放状态：进度每 250ms 更新一次，
+ * 只有这一小块重组，首页的画布与头部不受影响。
+ */
+@Composable
+private fun BoxScope.MiniPlayerSlot(
+  viewModel: PlayerViewModel,
+  isDark: Boolean,
+  background: Color,
+  onOpen: () -> Unit
+) {
+  val playerState by viewModel.uiState.collectAsStateWithLifecycle()
+  val song = playerState.currentSong ?: return
+  // 外层先铺页面底色再让出导航栏高度，保证三键导航下渐变不会被截断
+  Box(
+    modifier = Modifier
+      .align(Alignment.BottomCenter)
+      .fillMaxWidth()
+      .background(background)
+      .navigationBarsPadding()
+  ) {
+    MiniPlayerBar(
+      song = song,
+      isPlaying = playerState.isPlaying,
+      progress = if (playerState.durationMs > 0L) {
+        playerState.positionMs.toFloat() / playerState.durationMs
+      } else {
+        0f
+      },
+      onTogglePlay = viewModel::onPlayPause,
+      onClick = onOpen,
+      isDark = isDark
+    )
+  }
+}
+
 /** 榜单首次加载时的占位：一行小字，不遮挡头部 */
 @Composable
-private fun CanvasPlaceholder(text: String, isDark: Boolean) {
-  Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+private fun CanvasPlaceholder(text: String, isDark: Boolean) {  Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
     Text(
       text = text,
       color = if (isDark) EchoTextPrimaryDark.copy(alpha = 0.5f) else EchoTextSecondary,

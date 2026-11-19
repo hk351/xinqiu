@@ -121,7 +121,7 @@ private val DangerRed = Color(0xFFE5484D)
  * - 点按有轻微缩放 + 悬浮/播放中背景着色；当前播放行显示跳动的音量条；
  * - 空歌单使用自绘插画空态，宽屏（≥600dp）自动切换为「封面在左、信息在右」布局。
  *
- * 数据层仍是 Mock：删除与排序只改 ViewModel 内存，接 Room 后替换实现即可。
+ * 数据来自网易云榜单：删除与排序只改 ViewModel 内存，不写回服务端。
  */
 @Composable
 fun PlaylistScreen(

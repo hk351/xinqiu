@@ -7,12 +7,17 @@ import com.dlust.ydhl2026.data.model.ChartTrack
 import com.dlust.ydhl2026.data.model.Playlist
 import com.dlust.ydhl2026.data.model.Song
 import com.dlust.ydhl2026.data.repository.MusicRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+/** 搜索防抖时长：太短等于没防抖，太长输入手感会发涩 */
+private const val SEARCH_DEBOUNCE_MS = 300L
 
 /** 首页 UI 状态 */
 data class HomeUiState(
@@ -28,9 +33,7 @@ data class HomeUiState(
   val isLoading: Boolean = true,
   /** 榜单拉取失败时的提示；有缓存兜底时为 null */
   val errorMessage: String? = null
-) {
-  val localSongCount: Int get() = localSongs.size
-}
+)
 
 /** 界面能发出的操作（UDF：事件单向流入 ViewModel） */
 sealed interface HomeAction {
@@ -85,7 +88,17 @@ class HomeViewModel(
           return
         }
         searchJob = viewModelScope.launch {
-          val results = runCatching { repository.search(action.query) }.getOrDefault(emptyList())
+          // 输入停顿 300ms 再查：边打边发既费流量，也容易让旧结果盖住新结果
+          delay(SEARCH_DEBOUNCE_MS)
+          val results = try {
+            repository.search(action.query)
+          } catch (e: CancellationException) {
+            throw e
+          } catch (e: Exception) {
+            emptyList()
+          }
+          // 结果回来时关键词可能已经变了，旧结果直接丢弃
+          if (_uiState.value.searchQuery != action.query) return@launch
           _uiState.update { it.copy(searchResults = results) }
         }
       }
@@ -97,8 +110,21 @@ class HomeViewModel(
     chartJob?.cancel()
     chartJob = viewModelScope.launch {
       _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-      val charts = runCatching { repository.charts() }.getOrDefault(emptyList())
-      val recommended = runCatching { repository.recommended() }.getOrDefault(emptyList())
+      // 取消是正常流程：runCatching 会把它一起吞掉，导致旧任务把新任务的状态覆盖掉
+      val charts = try {
+        repository.charts()
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        emptyList()
+      }
+      val recommended = try {
+        repository.recommended()
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        emptyList()
+      }
       _uiState.update {
         it.copy(
           charts = charts,
