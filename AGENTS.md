@@ -66,7 +66,8 @@ adb pull /sdcard/shot.png app\build\shots\shot.png
 | 目录 | 职责 |
 | --- | --- |
 | `data/model/` | 纯数据类（Song、Playlist、PlaybackState、LyricLine），不放 Android 依赖 |
-| `data/repository/` | 数据来源抽象（`MusicRepository`）与实现（`MockMusicRepository`） |
+| `data/repository/` | 数据来源抽象（`MusicRepository`）与实现（`NeteaseMusicRepository`） |
+| `data/remote/` | 网易云榜单 / 搜索 / 播放地址接口（`NeteaseApi`）与当日榜单缓存（`ChartCache`） |
 | `data/playback/` | 播放抽象 `PlaybackEngine` + Media3 实现 `Media3PlaybackEngine` |
 | `data/local/` | MediaStore 扫描的 `LocalMusicSource` 与内存缓存 `LocalMusicStore` |
 | `ui/<页面>/` | 每个页面一个包：`XxxScreen`（纯 UI）+ `XxxViewModel`（状态与动作） |

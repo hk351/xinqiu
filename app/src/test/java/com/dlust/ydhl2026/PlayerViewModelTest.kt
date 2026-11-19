@@ -1,13 +1,21 @@
 package com.dlust.ydhl2026
 
+import com.dlust.ydhl2026.data.local.PlayHistory
+import com.dlust.ydhl2026.data.model.ChartTrack
+import com.dlust.ydhl2026.data.model.Playlist
 import com.dlust.ydhl2026.data.model.Song
 import com.dlust.ydhl2026.data.playback.FakePlaybackEngine
+import com.dlust.ydhl2026.data.repository.MusicRepository
 import com.dlust.ydhl2026.data.settings.PlayerBackdropStore
 import com.dlust.ydhl2026.ui.player.BackdropPreset
 import com.dlust.ydhl2026.ui.player.PlayerBackdrop
 import com.dlust.ydhl2026.ui.player.PlayerViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -39,6 +47,34 @@ class PlayerViewModelTest {
     Dispatchers.resetMain()
   }
 
+  /** 测试里不关心榜单和网络，仓库只负责把歌曲自带的地址交回去 */
+  private fun createViewModel(
+    store: PlayerBackdropStore = PlayerBackdropStore()
+  ) = PlayerViewModel(engine, store, FakeRepository(), FakeHistory())
+
+  private class FakeRepository : MusicRepository {
+    override suspend fun charts(): List<Playlist> = emptyList()
+
+    override suspend fun chartTracks(chartId: Long): List<ChartTrack> = emptyList()
+
+    override suspend fun recommended(): List<ChartTrack> = emptyList()
+
+    override fun recentSongs(): Flow<List<Song>> = flowOf(emptyList())
+
+    override suspend fun search(query: String): List<Song> = emptyList()
+
+    override suspend fun playUrl(song: Song): String? = song.sourceUrl
+  }
+
+  private class FakeHistory : PlayHistory {
+    private val _recent = MutableStateFlow<List<Song>>(emptyList())
+    override val recent: StateFlow<List<Song>> = _recent
+
+    override fun record(song: Song) {
+      _recent.value = listOf(song) + _recent.value.filterNot { it.id == song.id }
+    }
+  }
+
   /** 三首歌的队列，时长依次为 1s / 2s / 3s，方便断言 */
   private fun queue(): List<Song> = listOf(
     song("s1", 1000L),
@@ -59,7 +95,7 @@ class PlayerViewModelTest {
 
   @Test
   fun `从队列点歌会切歌并重置进度`() {
-    val viewModel = PlayerViewModel(engine, PlayerBackdropStore())
+    val viewModel = createViewModel()
     val queue = queue()
     viewModel.onPlaySong(queue[0], queue)
     viewModel.onSeekTo(800L)
@@ -75,7 +111,7 @@ class PlayerViewModelTest {
 
   @Test
   fun `点击越界索引不会改变当前歌曲`() {
-    val viewModel = PlayerViewModel(engine, PlayerBackdropStore())
+    val viewModel = createViewModel()
     val queue = queue()
     viewModel.onPlaySong(queue[0], queue)
 
@@ -87,7 +123,7 @@ class PlayerViewModelTest {
 
   @Test
   fun `队列拖拽可以前后换位`() {
-    val viewModel = PlayerViewModel(engine, PlayerBackdropStore())
+    val viewModel = createViewModel()
     val queue = queue()
     viewModel.onPlaySong(queue[1], queue)
 
@@ -100,7 +136,7 @@ class PlayerViewModelTest {
 
   @Test
   fun `拖拽越界时停在队列两端且不影响当前歌曲`() {
-    val viewModel = PlayerViewModel(engine, PlayerBackdropStore())
+    val viewModel = createViewModel()
     val queue = queue()
     viewModel.onPlaySong(queue[0], queue)
 
@@ -113,7 +149,7 @@ class PlayerViewModelTest {
 
   @Test
   fun `拖拽不存在的歌曲不会改变队列`() {
-    val viewModel = PlayerViewModel(engine, PlayerBackdropStore())
+    val viewModel = createViewModel()
     val queue = queue()
     viewModel.onPlaySong(queue[0], queue)
 
@@ -124,7 +160,7 @@ class PlayerViewModelTest {
 
   @Test
   fun `点歌会把歌曲地址交给播放引擎`() {
-    val viewModel = PlayerViewModel(engine, PlayerBackdropStore())
+    val viewModel = createViewModel()
     val queue = queue()
 
     viewModel.onPlaySong(queue[0], queue)
@@ -135,7 +171,7 @@ class PlayerViewModelTest {
 
   @Test
   fun `暂停与继续会同步给播放引擎`() {
-    val viewModel = PlayerViewModel(engine, PlayerBackdropStore())
+    val viewModel = createViewModel()
     val queue = queue()
     viewModel.onPlaySong(queue[0], queue)
 
@@ -150,7 +186,7 @@ class PlayerViewModelTest {
 
   @Test
   fun `拖动进度会同步给播放引擎并钳制在时长内`() {
-    val viewModel = PlayerViewModel(engine, PlayerBackdropStore())
+    val viewModel = createViewModel()
     val queue = queue()
     viewModel.onPlaySong(queue[0], queue)
 
@@ -165,8 +201,7 @@ class PlayerViewModelTest {
   @Test
   fun `换背景会同步到界面状态并落盘`() {
     val saved = mutableListOf<PlayerBackdrop>()
-    val viewModel = PlayerViewModel(
-      engine,
+    val viewModel = createViewModel(
       PlayerBackdropStore(PlayerBackdrop.Default) { saved += it }
     )
     val chosen = PlayerBackdrop.Default.withPreset(BackdropPreset.Dominant)
@@ -179,7 +214,7 @@ class PlayerViewModelTest {
 
   @Test
   fun `顺序模式下一首放完会自动播下一首`() {
-    val viewModel = PlayerViewModel(engine, PlayerBackdropStore())
+    val viewModel = createViewModel()
     val queue = queue()
     viewModel.onPlaySong(queue[0], queue)
 
@@ -194,7 +229,7 @@ class PlayerViewModelTest {
 
   @Test
   fun `单曲循环模式下一首放完会回到开头继续播放`() {
-    val viewModel = PlayerViewModel(engine, PlayerBackdropStore())
+    val viewModel = createViewModel()
     val queue = queue()
     viewModel.onPlaySong(queue[0], queue)
     viewModel.onRepeatModeChange()
@@ -214,7 +249,7 @@ class PlayerViewModelTest {
 
   @Test
   fun `随机模式下一首放完会切到队列里的其他歌曲`() {
-    val viewModel = PlayerViewModel(engine, PlayerBackdropStore())
+    val viewModel = createViewModel()
     val queue = queue()
     viewModel.onPlaySong(queue[0], queue)
     viewModel.onRepeatModeChange()

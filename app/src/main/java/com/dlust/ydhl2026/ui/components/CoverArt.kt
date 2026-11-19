@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 
 /** 预设色板：每个色对是一组“深 → 浅”的同色系渐变 */
 private val CoverGradients = listOf(
@@ -57,9 +58,12 @@ fun CoverArt(
   val gradient = remember(seed) { coverGradientPair(seed) }
   val shape = RoundedCornerShape(cornerRadius)
   val context = LocalContext.current
+  // 网络图（榜单封面）交给 Coil，content:// 仍走本地位图缓存
+  val isRemote = artUrl?.startsWith("http") == true
+  val localUrl = artUrl?.takeIf { !isRemote }
   // 初值取同步缓存：列表滚动回来时同一张封面能立刻显示，不会先闪一下渐变
-  val artwork by produceState(initialValue = artUrl?.let(::cachedArtwork), artUrl) {
-    value = artUrl?.let { loadArtwork(context, it) }
+  val artwork by produceState(initialValue = localUrl?.let(::cachedArtwork), artUrl) {
+    value = localUrl?.let { loadArtwork(context, it) }
   }
   Box(
     modifier = modifier
@@ -68,7 +72,20 @@ fun CoverArt(
     contentAlignment = Alignment.Center
   ) {
     val bitmap = artwork
-    if (bitmap != null) {
+    if (isRemote) {
+      // 渐变底色已经在下面，图片加载中或失败时自动露出它，不会出现白块
+      AsyncImage(
+        model = artUrl,
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        modifier = Modifier.matchParentSize()
+      )
+      Box(
+        modifier = Modifier
+          .matchParentSize()
+          .border(1.dp, Color.White.copy(alpha = 0.12f), shape)
+      )
+    } else if (bitmap != null) {
       Image(
         bitmap = bitmap,
         contentDescription = null,

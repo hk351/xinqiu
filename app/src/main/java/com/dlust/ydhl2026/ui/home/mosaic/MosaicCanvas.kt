@@ -72,7 +72,11 @@ import kotlin.math.pow
  * 歌单点击后进详情页，不参与播放队列。
  */
 sealed interface MosaicEntry {
-  data class Track(val song: Song, val queue: List<Song>) : MosaicEntry
+  /**
+   * [rank] 是榜单名次：推荐页直接显示「TOP 3」。
+   * 本地歌曲和播放历史没有名次，传 null 时退回「单曲 · 序号」。
+   */
+  data class Track(val song: Song, val queue: List<Song>, val rank: Int? = null) : MosaicEntry
   data class Collection(val playlist: Playlist) : MosaicEntry
 }
 
@@ -225,7 +229,9 @@ fun MosaicCanvas(
             style = style,
             isPlaying = isPlaying,
             isDark = isDark,
-            ordinal = slot.globalIndex,
+            // 卡片上的「单曲 · 序号」要按歌单里的位置算，不能用画布上的第几块，
+            // 否则同一个条目循环补屏时会出现 20、23 这种对不上的编号
+            ordinal = slot.globalIndex % entries.size,
             // 字号跟着卡片实际宽度走，宽卡才有资格用大字，窄卡也不会溢出
             titleSp = (slot.width / density.density * 0.098f).coerceIn(13f, 26f),
             onClick = {
@@ -303,7 +309,8 @@ private fun MosaicCard(
   }
   val artUrl = (entry as? MosaicEntry.Track)?.song?.albumArtUrl
   val chipText = when (entry) {
-    is MosaicEntry.Track -> "单曲 · ${(ordinal + 1).toString().padStart(2, '0')}"
+    is MosaicEntry.Track -> entry.rank?.let { "TOP $it" }
+      ?: "单曲 · ${(ordinal + 1).toString().padStart(2, '0')}"
     is MosaicEntry.Collection -> "歌单 · ${entry.playlist.songCount}"
   }
   val title = when (entry) {

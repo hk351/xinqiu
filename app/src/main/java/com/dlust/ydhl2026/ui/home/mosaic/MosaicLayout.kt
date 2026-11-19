@@ -48,9 +48,10 @@ private val LaneWidths = floatArrayOf(
 /**
  * 各列从不同的高度起砌（屏幕宽倍数）。
  * 参差主要来自这里：如果所有列都从 0 开始，再随机的高度比例也会在第一屏排出横向对齐的"楼层线"。
+ * 幅度控制在 0.12 屏宽以内，错开起点又不至于在顶部留出明显豁口。
  */
 private val LaneStarts = floatArrayOf(
-  0f, 0.30f, 0.10f, 0.44f, 0.18f, 0.36f, 0.06f, 0.40f, 0.14f, 0.28f
+  0f, 0.09f, 0.02f, 0.12f, 0.05f, 0.10f, 0.01f, 0.11f, 0.03f, 0.08f
 )
 
 /** 卡片高度 = 宽度 × 这组比例，跨度拉到 0.72~1.85，横条和超长竖条交替出现 */
@@ -110,9 +111,12 @@ object MosaicLayout {
       acc += LaneWidths[i]
     }
 
-    // 起始高度按列往上错开：卡片从平面上边缘之上伸进来，顶部既没有横平竖直的起点，
-    // 也不会在浅色模式下露出一块空白的页面底色
-    val cursor = IntArray(laneCount) { -(LaneStarts[it] * viewportWidthPx).roundToInt() }
+    // 起始高度按列错开，但整体下移到平面内：如果让卡片从 y<0 伸进来，
+    // 视口又滑不到负值，排在最前面的曲目就永远看不见了（推荐页名次会从中间开始）
+    val stagger = (LaneStarts.maxOrNull() ?: 0f) * viewportWidthPx
+    val cursor = IntArray(laneCount) {
+      (stagger - LaneStarts[it] * viewportWidthPx).roundToInt()
+    }
     val result = ArrayList<TileSlot>(256)
     var index = 0
     var lastSpan = -10

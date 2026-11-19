@@ -1,5 +1,6 @@
 package com.dlust.ydhl2026.ui.home
 
+import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -28,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -114,14 +116,39 @@ fun HomeScreen(
     label = "homeHeaderAlpha"
   )
 
-  val recommendedEntries = remember(state.recentSongs, state.playlists) {
-    recommendEntries(state.recentSongs, state.playlists)
+  // 网络歌没有版权时播放器会塞一条提示进来，展示后立刻清空，避免重组时反复弹
+  LaunchedEffect(playerState.notice) {
+    val notice = playerState.notice ?: return@LaunchedEffect
+    Toast.makeText(context, notice, Toast.LENGTH_SHORT).show()
+    playerViewModel.onNoticeShown()
+  }
+
+  val recommendedEntries = remember(state.recommended) {
+    val queue = state.recommended.map { it.song }
+    state.recommended.map { MosaicEntry.Track(it.song, queue, it.rank) }
   }
   val recentEntries = remember(state.recentSongs) {
     state.recentSongs.map { MosaicEntry.Track(it, state.recentSongs) }
   }
-  val playlistEntries = remember(state.playlists) {
-    state.playlists.map { MosaicEntry.Collection(it) }
+  // 歌单 Tab 只有 3 个官方榜，单铺会把同一张卡重复一屏；
+  // 每四首热歌夹一张榜单入口，既能进详情，画布也不单调
+  val playlistEntries = remember(state.charts, state.recommended) {
+    val charts = state.charts
+    if (charts.isEmpty()) {
+      emptyList()
+    } else {
+      val queue = state.recommended.map { it.song }
+      buildList {
+        var chartCursor = 0
+        state.recommended.forEachIndexed { index, track ->
+          if (index % 4 == 0) {
+            add(MosaicEntry.Collection(charts[chartCursor % charts.size]))
+            chartCursor++
+          }
+          add(MosaicEntry.Track(track.song, queue, track.rank))
+        }
+      }
+    }
   }
   val localEntries = remember(state.localSongs) {
     state.localSongs.map { MosaicEntry.Track(it, state.localSongs) }
@@ -130,35 +157,75 @@ fun HomeScreen(
   Box(modifier = modifier.fillMaxSize().background(background)) {
     // 画布铺满整屏（含状态栏与导航栏区域），头部只是浮在上面的一层
     when (state.selectedTab) {
-      HomeTab.RECOMMEND -> MosaicCanvas(
-        entries = recommendedEntries,
-        currentSongId = playerState.currentSong?.id,
-        isPlaying = playerState.isPlaying,
-        isDark = isDark,
-        scrollState = scrollStates.getValue(HomeTab.RECOMMEND),
-        onTrackClick = { song, queue ->
-          playerViewModel.onPlaySong(song, queue)
-          panelOpen = true
-        },
-        onPlaylistClick = onPlaylistClick,
-        onDragStateChange = { canvasDragging = it },
-        modifier = Modifier.fillMaxSize()
-      )
+      HomeTab.RECOMMEND -> when {
+        // 首次加载没有缓存时给一个轻量占位，避免整屏空白
+        state.isLoading && recommendedEntries.isEmpty() ->
+          CanvasPlaceholder(text = "正在加载今日榜单…", isDark = isDark)
 
-      HomeTab.RECENT -> MosaicCanvas(
-        entries = recentEntries,
-        currentSongId = playerState.currentSong?.id,
-        isPlaying = playerState.isPlaying,
-        isDark = isDark,
-        scrollState = scrollStates.getValue(HomeTab.RECENT),
-        onTrackClick = { song, queue ->
-          playerViewModel.onPlaySong(song, queue)
-          panelOpen = true
-        },
-        onPlaylistClick = onPlaylistClick,
-        onDragStateChange = { canvasDragging = it },
-        modifier = Modifier.fillMaxSize()
-      )
+        state.errorMessage != null && recommendedEntries.isEmpty() -> Box(
+          modifier = Modifier.fillMaxSize().padding(top = 150.dp, bottom = 96.dp)
+        ) {
+          EmptyState(
+            title = "榜单暂时拉不到",
+            description = state.errorMessage.orEmpty(),
+            isDark = isDark,
+            icon = {
+              MusicNoteIcon(
+                modifier = Modifier.size(24.dp),
+                color = EchoAccent.copy(alpha = 0.7f)
+              )
+            },
+            actionLabel = "重试",
+            onAction = { homeViewModel.onAction(HomeAction.Retry) }
+          )
+        }
+
+        else -> MosaicCanvas(
+          entries = recommendedEntries,
+          currentSongId = playerState.currentSong?.id,
+          isPlaying = playerState.isPlaying,
+          isDark = isDark,
+          scrollState = scrollStates.getValue(HomeTab.RECOMMEND),
+          onTrackClick = { song, queue ->
+            playerViewModel.onPlaySong(song, queue)
+            panelOpen = true
+          },
+          onPlaylistClick = onPlaylistClick,
+          onDragStateChange = { canvasDragging = it },
+          modifier = Modifier.fillMaxSize()
+        )
+      }
+
+      HomeTab.RECENT -> if (recentEntries.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize().padding(top = 150.dp, bottom = 96.dp)) {
+          EmptyState(
+            title = "还没有播放记录",
+            description = "听过的歌会自动出现在这里，\n按最近播放的顺序排列。",
+            isDark = isDark,
+            icon = {
+              MusicNoteIcon(
+                modifier = Modifier.size(24.dp),
+                color = EchoAccent.copy(alpha = 0.7f)
+              )
+            }
+          )
+        }
+      } else {
+        MosaicCanvas(
+          entries = recentEntries,
+          currentSongId = playerState.currentSong?.id,
+          isPlaying = playerState.isPlaying,
+          isDark = isDark,
+          scrollState = scrollStates.getValue(HomeTab.RECENT),
+          onTrackClick = { song, queue ->
+            playerViewModel.onPlaySong(song, queue)
+            panelOpen = true
+          },
+          onPlaylistClick = onPlaylistClick,
+          onDragStateChange = { canvasDragging = it },
+          modifier = Modifier.fillMaxSize()
+        )
+      }
 
       HomeTab.PLAYLISTS -> MosaicCanvas(
         entries = playlistEntries,
@@ -292,18 +359,16 @@ fun HomeScreen(
   }
 }
 
-/** 推荐页把歌单插进歌曲之间，避免整面墙全是同一种内容 */
-private fun recommendEntries(
-  songs: List<Song>,
-  playlists: List<Playlist>
-): List<MosaicEntry> {
-  val result = mutableListOf<MosaicEntry>()
-  val rounds = maxOf(songs.size, playlists.size)
-  for (index in 0 until rounds) {
-    songs.getOrNull(index)?.let { result += MosaicEntry.Track(it, songs) }
-    playlists.getOrNull(index)?.let { result += MosaicEntry.Collection(it) }
+/** 榜单首次加载时的占位：一行小字，不遮挡头部 */
+@Composable
+private fun CanvasPlaceholder(text: String, isDark: Boolean) {
+  Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Text(
+      text = text,
+      color = if (isDark) EchoTextPrimaryDark.copy(alpha = 0.5f) else EchoTextSecondary,
+      fontSize = 12.5.sp
+    )
   }
-  return result
 }
 
 /** 顶部：品牌字 + 搜索入口 + 头像 */

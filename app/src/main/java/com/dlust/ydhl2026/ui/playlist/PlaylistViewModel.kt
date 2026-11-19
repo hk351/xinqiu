@@ -8,7 +8,6 @@ import com.dlust.ydhl2026.data.repository.MusicRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -21,8 +20,8 @@ data class PlaylistUiState(
 
 /**
  * 歌单详情页状态管理。
- * 本轮数据来自 MockMusicRepository；滑动删除与拖拽排序只改内存里的列表，
- * 接入 Room 后把 removeSong / moveSongBy 换成持久化调用即可，界面不用动。
+ * 现接入的是网易云官方榜（热歌/飙升/新歌），榜单曲目即歌单曲目；
+ * 滑动删除与拖拽排序只改内存里的列表，不写回服务端。
  */
 class PlaylistViewModel(
   private val playlistId: Long,
@@ -37,13 +36,12 @@ class PlaylistViewModel(
 
   init {
     viewModelScope.launch {
-      val playlist = repository.playlists().first().firstOrNull { it.id == playlistId }
+      val playlist = runCatching { repository.charts() }.getOrDefault(emptyList())
+        .firstOrNull { it.id == playlistId }
+      val songs = runCatching { repository.chartTracks(playlistId) }.getOrDefault(emptyList())
+        .map { it.song }
       _uiState.update {
-        it.copy(
-          playlist = playlist,
-          songs = repository.songsOf(playlistId).first(),
-          isLoading = false
-        )
+        it.copy(playlist = playlist, songs = songs, isLoading = false)
       }
     }
   }

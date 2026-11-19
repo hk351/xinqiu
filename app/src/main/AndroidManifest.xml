@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Mock 音频来自网络（SoundHelix 示例 MP3），Media3 播放需要联网 -->
+    <!-- 榜单、搜索、封面与播放地址都来自网络 -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- 本地音乐扫描：13+ 用细化音频权限，12 及以下用存储权限 -->
@@ -18,6 +18,7 @@
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Ydhl2026">

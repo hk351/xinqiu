@@ -70,12 +70,14 @@ class MosaicLayoutTest {
   }
 
   @Test
-  fun `各列从平面上方伸入 顶部起点参差不齐`() {
+  fun `各列顶部起点参差不齐 且最前面的卡不会被顶出平面`() {
     val tiles = MosaicLayout.tiles(viewportWidthPx, 3000)
-    val tops = tiles.filter { it.y <= 0 }.map { it.y }.distinct()
-    // 若所有列都从 0 起砌，顶端只有一条直线；错开后应有多个不同的起点
+    // 顶部半屏内应出现多个不同的起点，而不是一条横平竖直的楼线
+    val tops = tiles.map { it.y }.filter { it < viewportWidthPx / 2 }.distinct()
     assertTrue("顶部起点只有 ${tops.size} 种", tops.size >= 3)
-    assertTrue("所有列都从平面内开始，顶部会露出页面底色", tiles.any { it.y < 0 })
+    // 视口向上滑不动，排在前面的卡必须在平面内，否则推荐页会从中间名次开始
+    assertEquals(0, tiles.first().y)
+    assertTrue("有卡片被排到了平面上方", tiles.all { it.y >= 0 })
   }
 
   @Test

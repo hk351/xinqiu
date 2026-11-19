@@ -2,9 +2,12 @@ package com.dlust.ydhl2026.ui.player
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dlust.ydhl2026.data.local.PlayHistory
 import com.dlust.ydhl2026.data.model.Song
 import com.dlust.ydhl2026.data.playback.PlaybackEngine
+import com.dlust.ydhl2026.data.repository.MusicRepository
 import com.dlust.ydhl2026.data.settings.PlayerBackdropStore
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,7 +23,9 @@ data class PlayerUiState(
   val positionMs: Long = 0L,
   val durationMs: Long = 0L,
   /** 用户 DIY 的播放背景，面板与歌词舞台共用 */
-  val backdrop: PlayerBackdrop = PlayerBackdrop.Default
+  val backdrop: PlayerBackdrop = PlayerBackdrop.Default,
+  /** 一次性提示（比如网络歌没有版权），界面展示后回调清空 */
+  val notice: String? = null
 )
 
 /**
@@ -33,7 +38,9 @@ data class PlayerUiState(
  */
 class PlayerViewModel(
   private val engine: PlaybackEngine,
-  private val backdropStore: PlayerBackdropStore
+  private val backdropStore: PlayerBackdropStore,
+  private val repository: MusicRepository,
+  private val history: PlayHistory
 ) : ViewModel() {
 
   private val _uiState = MutableStateFlow(
@@ -41,6 +48,9 @@ class PlayerViewModel(
     PlayerUiState(backdrop = backdropStore.backdrop.value)
   )
   val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
+
+  /** 正在进行的地址解析；用户快速切歌时取消上一次，避免旧请求把新歌覆盖掉 */
+  private var playJob: Job? = null
 
   init {
     viewModelScope.launch {
@@ -76,7 +86,8 @@ class PlayerViewModel(
         durationMs = song.durationMs
       )
     }
-    engine.play(song.sourceUrl)
+    history.record(song)
+    resolveAndPlay(song)
   }
 
   fun onPlayPause() {
@@ -141,7 +152,32 @@ class PlayerViewModel(
     _uiState.update {
       it.copy(currentSong = song, isPlaying = true, positionMs = 0L, durationMs = song.durationMs)
     }
-    engine.play(song.sourceUrl)
+    history.record(song)
+    resolveAndPlay(song)
+  }
+
+  /**
+   * 网络歌的播放地址带时效，点播时才解析；本地歌直接用自己的路径。
+   * 解析有耗时，期间用户可能又点了别的歌，所以返回后要核对当前歌是不是同一首。
+   */
+  private fun resolveAndPlay(song: Song) {
+    playJob?.cancel()
+    playJob = viewModelScope.launch {
+      val url = runCatching { repository.playUrl(song) }.getOrNull()
+      if (_uiState.value.currentSong?.id != song.id) return@launch
+      if (url.isNullOrBlank()) {
+        _uiState.update {
+          it.copy(isPlaying = false, notice = "「${song.title}」暂时没有可播放的音频")
+        }
+        return@launch
+      }
+      engine.play(url)
+    }
+  }
+
+  /** 提示展示完，界面回调清空，避免重组时反复弹 */
+  fun onNoticeShown() {
+    _uiState.update { it.copy(notice = null) }
   }
 
   /** 引擎播完一首歌：按循环模式决定接下来放什么 */

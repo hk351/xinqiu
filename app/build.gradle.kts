@@ -51,8 +51,11 @@ dependencies {
   implementation(libs.androidx.navigation.compose)
   implementation(libs.androidx.media3.exoplayer)
   implementation(libs.androidx.documentfile)
+  implementation(libs.coil.compose)
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
+  // 本地单测里没有 Android 的 org.json 实现，解析逻辑要能直接跑就得补一份
+  testImplementation(libs.json)
   androidTestImplementation(platform(libs.androidx.compose.bom))
   androidTestImplementation(libs.androidx.compose.ui.test.junit4)
   androidTestImplementation(libs.androidx.espresso.core)
